@@ -1686,6 +1686,64 @@ type KnowledgeHealth struct {
 	ContradictionCount  int     `json:"contradiction_count"`
 }
 
+// KnowledgeRelationship represents a relationship from the knowledge API
+type KnowledgeRelationship struct {
+	ID               string   `json:"id"`
+	RelationType     string   `json:"relation_type"`
+	SourceType       string   `json:"source_type"`
+	SourceID         string   `json:"source_id"`
+	SourceLabel      string   `json:"source_label"`
+	TargetType       string   `json:"target_type"`
+	TargetID         string   `json:"target_id"`
+	TargetLabel      string   `json:"target_label"`
+	Strength         float64  `json:"strength"`
+	Direction        string   `json:"direction"`
+	Evidence         []string `json:"evidence,omitempty"`
+	ObservationCount int      `json:"observation_count"`
+}
+
+// KnowledgeRelationshipsResponse represents the relationships API response
+type KnowledgeRelationshipsResponse struct {
+	Relationships []KnowledgeRelationship `json:"relationships"`
+	Total         int                     `json:"total"`
+}
+
+// KnowledgeTraversalResult represents a node from graph traversal
+type KnowledgeTraversalResult struct {
+	EntityType   string  `json:"entity_type"`
+	EntityID     string  `json:"entity_id"`
+	EntityLabel  string  `json:"entity_label"`
+	RelationType string  `json:"relation_type"`
+	Strength     float64 `json:"strength"`
+	Depth        int     `json:"depth"`
+}
+
+// KnowledgeTraversalResponse represents the graph traversal API response
+type KnowledgeTraversalResponse struct {
+	Results []KnowledgeTraversalResult `json:"results"`
+	Total   int                        `json:"total"`
+}
+
+// KnowledgeGraphSearchResult extends search results with graph metadata
+type KnowledgeGraphSearchResult struct {
+	Type            string  `json:"type"`
+	ID              string  `json:"id"`
+	Title           string  `json:"title,omitempty"`
+	Content         string  `json:"content,omitempty"`
+	Vertical        string  `json:"vertical,omitempty"`
+	Similarity      float64 `json:"similarity,omitempty"`
+	Confidence      float64 `json:"confidence,omitempty"`
+	DiscoveryMethod string  `json:"discovery_method,omitempty"`
+	GraphPath       string  `json:"graph_path,omitempty"`
+}
+
+// KnowledgeGraphSearchResponse represents graph-expanded search API response
+type KnowledgeGraphSearchResponse struct {
+	Results       []KnowledgeGraphSearchResult `json:"results"`
+	Total         int                          `json:"total"`
+	GraphExpanded bool                         `json:"graph_expanded"`
+}
+
 // cmdKnowledge handles the knowledge command
 func cmdKnowledge(args []string) {
 	if len(args) == 0 {
@@ -1703,6 +1761,12 @@ func cmdKnowledge(args []string) {
 		cmdKnowledgeProcedures(args[1:])
 	case "patterns":
 		cmdKnowledgePatterns(args[1:])
+	case "relationships":
+		cmdKnowledgeRelationships(args[1:])
+	case "graph":
+		cmdKnowledgeGraph(args[1:])
+	case "graph-search":
+		cmdKnowledgeGraphSearch(args[1:])
 	case "enrich":
 		cmdKnowledgeEnrich(args[1:])
 	case "health":
@@ -1725,9 +1789,12 @@ Usage:
 Subcommands:
   enrich              Fetch patterns, procedures, and health in one call
   search              Semantic search across all knowledge types
+  graph-search        Graph-expanded semantic search (search + graph neighbors)
   facts               List or search facts
   procedures          List or search procedures (with control mappings)
   patterns            List or search failure patterns
+  relationships       List relationships for a knowledge entity
+  graph               Traverse the knowledge graph from an entity
   health              Show knowledge base health statistics
 
 Enrich Options:
@@ -1739,6 +1806,9 @@ Enrich Options:
 
 Search Options:
   polaris knowledge search <query> [--limit=N]
+
+Graph-Search Options:
+  polaris knowledge graph-search <query> [--limit=N] [--depth=N] [--types=causes,mitigates]
 
 Facts Options:
   --vertical=<v>      Filter by SRE vertical (e.g., fault-tolerance, monitoring-alerting)
@@ -1759,13 +1829,23 @@ Patterns Options:
   --min-occurrences=N Minimum occurrence count
   --limit=<n>         Maximum results (default 20)
 
+Relationships Options:
+  polaris knowledge relationships <entity_type> <entity_id>
+  Entity types: fact, procedure, pattern, service, technology, control
+
+Graph Options:
+  polaris knowledge graph <entity_type> <entity_id> [--depth=N] [--min-strength=0.3] [--type=causes,mitigates]
+
 Examples:
   polaris knowledge enrich --vertical=fault-tolerance
   polaris knowledge enrich --control=RC-018 --query="timeout failure"
   polaris knowledge search "circuit breaker timeout patterns"
+  polaris knowledge graph-search "timeout failures" --depth=2
   polaris knowledge facts --vertical=fault-tolerance --technology=go
   polaris knowledge procedures --control=RC-018
   polaris knowledge patterns --type=failure_mode --min-occurrences=3
+  polaris knowledge relationships fact fact_abc12
+  polaris knowledge graph fact fact_abc12 --depth=2 --type=causes,mitigates
   polaris knowledge health`)
 }
 
@@ -2092,6 +2172,224 @@ func cmdKnowledgeHealth() {
 	}
 	if health.ContradictionCount > 0 {
 		fmt.Printf("  Contradictions:    %d\n", health.ContradictionCount)
+	}
+}
+
+// cmdKnowledgeRelationships lists relationships for a knowledge entity
+func cmdKnowledgeRelationships(args []string) {
+	if len(args) < 2 {
+		fmt.Fprintln(os.Stderr, "Error: entity type and entity ID required")
+		fmt.Fprintln(os.Stderr, "Usage: polaris knowledge relationships <type> <id>")
+		fmt.Fprintln(os.Stderr, "Types: fact, procedure, pattern, service, technology, control")
+		os.Exit(1)
+	}
+
+	entityType := args[0]
+	entityID := args[1]
+
+	cfg := loadAndResolveConfig()
+
+	url := cfg.APIURL + "/api/knowledge/entities/" + entityType + "/" + entityID + "/relationships"
+	resp, err := makeAPIRequest(cfg, "GET", url, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	var relsResp KnowledgeRelationshipsResponse
+	if err := json.Unmarshal(resp, &relsResp); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing response: %v\n", err)
+		os.Exit(1)
+	}
+
+	if relsResp.Total == 0 {
+		fmt.Printf("No relationships found for %s %s\n", entityType, entityID)
+		return
+	}
+
+	fmt.Printf("Relationships for %s %s (%d total):\n\n", entityType, entityID, relsResp.Total)
+	for _, rel := range relsResp.Relationships {
+		strengthPct := fmt.Sprintf("%.0f%%", rel.Strength*100)
+		dirIcon := " -> "
+		if rel.Direction == "bidirectional" {
+			dirIcon = " <-> "
+		}
+		fmt.Printf("  %s [%s]%s%s [%s] (strength: %s", rel.SourceLabel, rel.SourceType, dirIcon, rel.TargetLabel, rel.TargetType, strengthPct)
+		if rel.ObservationCount > 1 {
+			fmt.Printf(", seen %dx", rel.ObservationCount)
+		}
+		fmt.Println(")")
+		fmt.Printf("    Relation: %s  ID: %s\n", rel.RelationType, rel.ID)
+		if len(rel.Evidence) > 0 {
+			fmt.Printf("    Evidence: %s\n", rel.Evidence[0])
+		}
+	}
+}
+
+// cmdKnowledgeGraph traverses the knowledge graph from an entity
+func cmdKnowledgeGraph(args []string) {
+	if len(args) < 2 {
+		fmt.Fprintln(os.Stderr, "Error: entity type and entity ID required")
+		fmt.Fprintln(os.Stderr, "Usage: polaris knowledge graph <type> <id> [--depth=N] [--min-strength=0.3] [--type=causes,mitigates]")
+		os.Exit(1)
+	}
+
+	entityType := args[0]
+	entityID := args[1]
+	depth := 3
+	minStrength := "0.3"
+	var relationType string
+
+	for _, arg := range args[2:] {
+		if strings.HasPrefix(arg, "--depth=") {
+			fmt.Sscanf(strings.TrimPrefix(arg, "--depth="), "%d", &depth)
+		} else if strings.HasPrefix(arg, "--min-strength=") {
+			minStrength = strings.TrimPrefix(arg, "--min-strength=")
+		} else if strings.HasPrefix(arg, "--type=") {
+			relationType = strings.TrimPrefix(arg, "--type=")
+		}
+	}
+
+	cfg := loadAndResolveConfig()
+
+	url := fmt.Sprintf("%s/api/knowledge/entities/%s/%s/graph?max_depth=%d&min_strength=%s",
+		cfg.APIURL, entityType, entityID, depth, minStrength)
+	if relationType != "" {
+		url += "&relation_type=" + relationType
+	}
+
+	resp, err := makeAPIRequest(cfg, "GET", url, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	var travResp KnowledgeTraversalResponse
+	if err := json.Unmarshal(resp, &travResp); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing response: %v\n", err)
+		os.Exit(1)
+	}
+
+	if travResp.Total == 0 {
+		fmt.Printf("No connected nodes found from %s %s\n", entityType, entityID)
+		return
+	}
+
+	fmt.Printf("Graph traversal from %s %s (%d nodes):\n\n", entityType, entityID, travResp.Total)
+
+	// Group by depth for readability
+	maxDepth := 0
+	for _, n := range travResp.Results {
+		if n.Depth > maxDepth {
+			maxDepth = n.Depth
+		}
+	}
+
+	for d := 1; d <= maxDepth; d++ {
+		fmt.Printf("  Depth %d:\n", d)
+		for _, n := range travResp.Results {
+			if n.Depth != d {
+				continue
+			}
+			indent := strings.Repeat("  ", d)
+			fmt.Printf("  %s-[%s]-> %s [%s] (strength: %.0f%%)\n",
+				indent, n.RelationType, n.EntityLabel, n.EntityType, n.Strength*100)
+			fmt.Printf("  %s         ID: %s\n", indent, n.EntityID)
+		}
+	}
+}
+
+// cmdKnowledgeGraphSearch performs a graph-expanded semantic search
+func cmdKnowledgeGraphSearch(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "Error: search query required")
+		fmt.Fprintln(os.Stderr, "Usage: polaris knowledge graph-search <query> [--limit=N] [--depth=N] [--types=causes,mitigates]")
+		os.Exit(1)
+	}
+
+	var queryParts []string
+	limit := 20
+	depth := 1
+	var expandTypes string
+
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--limit=") {
+			fmt.Sscanf(strings.TrimPrefix(arg, "--limit="), "%d", &limit)
+		} else if strings.HasPrefix(arg, "--depth=") {
+			fmt.Sscanf(strings.TrimPrefix(arg, "--depth="), "%d", &depth)
+		} else if strings.HasPrefix(arg, "--types=") {
+			expandTypes = strings.TrimPrefix(arg, "--types=")
+		} else if !strings.HasPrefix(arg, "-") {
+			queryParts = append(queryParts, arg)
+		}
+	}
+
+	query := strings.Join(queryParts, " ")
+	if query == "" {
+		fmt.Fprintln(os.Stderr, "Error: search query required")
+		os.Exit(1)
+	}
+
+	cfg := loadAndResolveConfig()
+
+	body := map[string]interface{}{
+		"query":        query,
+		"limit":        limit,
+		"graph_expand": true,
+		"expand_depth": depth,
+	}
+	if expandTypes != "" {
+		body["expand_types"] = strings.Split(expandTypes, ",")
+	}
+	bodyBytes, _ := json.Marshal(body)
+
+	url := cfg.APIURL + "/api/knowledge/graph-search"
+	resp, err := makeAPIRequest(cfg, "POST", url, bodyBytes)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	var searchResp KnowledgeGraphSearchResponse
+	if err := json.Unmarshal(resp, &searchResp); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing response: %v\n", err)
+		os.Exit(1)
+	}
+
+	if searchResp.Total == 0 {
+		fmt.Println("No knowledge found matching query.")
+		return
+	}
+
+	fmt.Printf("Found %d results for \"%s\" (graph-expanded):\n\n", searchResp.Total, query)
+	for _, r := range searchResp.Results {
+		typeBadge := "[" + strings.ToUpper(r.Type) + "]"
+		title := r.Title
+		if title == "" {
+			title = truncateText(r.Content, 80)
+		}
+
+		methodBadge := ""
+		switch r.DiscoveryMethod {
+		case "semantic":
+			methodBadge = " [SEM]"
+		case "graph":
+			methodBadge = " [GRAPH]"
+		case "both":
+			methodBadge = " [SEM+GRAPH]"
+		}
+
+		fmt.Printf("  %-12s %s%s %s\n", r.ID, typeBadge, methodBadge, title)
+		if r.Similarity > 0 {
+			fmt.Printf("               Score: %.2f", r.Similarity)
+			if r.Vertical != "" {
+				fmt.Printf("  Vertical: %s", r.Vertical)
+			}
+			fmt.Println()
+		}
+		if r.GraphPath != "" {
+			fmt.Printf("               Path: %s\n", r.GraphPath)
+		}
 	}
 }
 
