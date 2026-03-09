@@ -919,6 +919,8 @@ func cmdRisk(args []string) {
 		cmdRiskList(args[1:])
 	case "show":
 		cmdRiskShow(args[1:])
+	case "context":
+		cmdRiskContext(args[1:])
 	case "stale":
 		cmdRiskStale(args[1:])
 	case "close":
@@ -947,6 +949,7 @@ Usage:
 Subcommands:
   list                List risks with optional filters
   show                Show risk details with mapped controls
+  context             Get unified risk context (risk + controls + knowledge + incidents)
   stale               List stale risks (not seen in recent scans)
   close               Close a risk
   resolve             Mark a risk as resolved
@@ -1099,6 +1102,260 @@ func cmdRiskShow(args []string) {
 		fmt.Println()
 		fmt.Printf("Control Codes: %s\n", strings.Join(riskDetail.ControlCodes, ", "))
 	}
+}
+
+// RiskContextResponse represents the unified risk context from the API.
+type RiskContextResponse struct {
+	Risk           RiskDetail              `json:"risk"`
+	Controls       []ControlContextItem    `json:"controls"`
+	Knowledge      KnowledgeContextResp    `json:"knowledge"`
+	ServiceContext *ServiceContextResp     `json:"service_context,omitempty"`
+	ScoreBreakdown []ScoreFactorResp       `json:"score_breakdown,omitempty"`
+}
+
+// ControlContextItem is a control with evidence and gaps.
+type ControlContextItem struct {
+	Control          MappedControl        `json:"control"`
+	ExistingEvidence []ContextEvidenceItem `json:"existing_evidence"`
+	EvidenceGaps     []string             `json:"evidence_gaps"`
+}
+
+// ContextEvidenceItem represents a piece of control evidence in the context response.
+type ContextEvidenceItem struct {
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	URL         string `json:"url_or_identifier,omitempty"`
+	Description string `json:"description,omitempty"`
+	Status      string `json:"status"`
+}
+
+// KnowledgeContextResp contains knowledge items relevant to the risk.
+type KnowledgeContextResp struct {
+	Patterns   []PatternItem   `json:"patterns"`
+	Procedures []ProcedureItem `json:"procedures"`
+	Facts      []FactItem      `json:"facts"`
+}
+
+// PatternItem represents a knowledge pattern with causal chain.
+type PatternItem struct {
+	Title              string      `json:"title"`
+	PatternType        string      `json:"pattern_type"`
+	CausalChain        []ChainLink `json:"causal_chain,omitempty"`
+	TriggerEvent       string      `json:"trigger_event,omitempty"`
+	OccurrenceCount    int         `json:"occurrence_count"`
+	TypicalMTTR        string      `json:"typical_mttr,omitempty"`
+	TypicalBlastRadius string      `json:"typical_blast_radius,omitempty"`
+	PreventionStrategies []string  `json:"prevention_strategies,omitempty"`
+	Score              float64     `json:"score"`
+}
+
+// ChainLink is a single event in a causal chain.
+type ChainLink struct {
+	Order        int    `json:"order"`
+	Event        string `json:"event"`
+	TypicalDelay string `json:"typical_delay,omitempty"`
+}
+
+// ProcedureItem represents a remediation procedure.
+type ProcedureItem struct {
+	Title              string  `json:"title"`
+	EffectivenessScore float64 `json:"effectiveness_score"`
+	AppliedCount       int     `json:"applied_count"`
+	SuccessCount       int     `json:"success_count"`
+	RelatedControls    []string `json:"related_controls,omitempty"`
+	Score              float64 `json:"score"`
+}
+
+// FactItem represents a validated reliability fact.
+type FactItem struct {
+	Content          string  `json:"content"`
+	Confidence       float64 `json:"confidence"`
+	ValidationStatus string  `json:"validation_status"`
+	Score            float64 `json:"score"`
+}
+
+// ServiceContextResp contains service-specific incident history.
+type ServiceContextResp struct {
+	ServiceName  string               `json:"service_name"`
+	Tier         string               `json:"tier,omitempty"`
+	Incidents    *IncidentHistoryResp `json:"incidents,omitempty"`
+}
+
+// IncidentHistoryResp contains historical incident stats.
+type IncidentHistoryResp struct {
+	TotalIncidents  int    `json:"total_incidents"`
+	Last30Days      int    `json:"last_30_days"`
+	Last90Days      int    `json:"last_90_days"`
+	CriticalCount   int    `json:"critical_count"`
+	HighCount       int    `json:"high_count"`
+	MostRecentTitle string `json:"most_recent_title,omitempty"`
+	AverageMTTR     *int   `json:"average_mttr,omitempty"`
+}
+
+// ScoreFactorResp explains one component of the risk score.
+type ScoreFactorResp struct {
+	Description string `json:"description"`
+	Points      int    `json:"points"`
+	Source      string `json:"source"`
+}
+
+// cmdRiskContext fetches unified risk context for risk guidance.
+func cmdRiskContext(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "Error: risk code required")
+		fmt.Fprintln(os.Stderr, "Usage: polaris risk context <risk-code> [--format=json]")
+		os.Exit(1)
+	}
+
+	riskCode := args[0]
+	formatJSON := false
+	for _, a := range args[1:] {
+		if a == "--format=json" {
+			formatJSON = true
+		}
+	}
+
+	cfg := loadAndResolveConfig()
+
+	// Resolve risk code to UUID
+	riskID, err := findRiskIDByCode(cfg, riskCode)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	url := cfg.APIURL + "/api/v1/risks/" + riskID + "/context"
+	resp, err := makeAPIRequest(cfg, "GET", url, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if formatJSON {
+		fmt.Println(string(resp))
+		return
+	}
+
+	var ctx RiskContextResponse
+	if err := json.Unmarshal(resp, &ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing response: %v\n", err)
+		os.Exit(1)
+	}
+
+	printRiskContext(ctx)
+}
+
+func printRiskContext(ctx RiskContextResponse) {
+	// Risk overview
+	priority := formatPriority(ctx.Risk.Score)
+	statusBadge := formatStatus(ctx.Risk.Status)
+	fmt.Printf("Risk: %s - %s\n", ctx.Risk.RiskCode, ctx.Risk.Title)
+	fmt.Printf("Category: %s | Status: %s | Score: %d (%s)\n",
+		ctx.Risk.Category, statusBadge, ctx.Risk.Score, priority)
+
+	if ctx.Risk.Narrative != "" {
+		fmt.Println()
+		fmt.Printf("Narrative:\n  %s\n", wrapText(ctx.Risk.Narrative, 78, "  "))
+	}
+
+	// Score breakdown
+	if len(ctx.ScoreBreakdown) > 0 {
+		fmt.Println()
+		fmt.Println("Score Breakdown:")
+		for _, f := range ctx.ScoreBreakdown {
+			fmt.Printf("  +%d pts: %s (%s)\n", f.Points, f.Description, f.Source)
+		}
+	}
+
+	// Causal chains from patterns
+	if len(ctx.Knowledge.Patterns) > 0 {
+		for _, p := range ctx.Knowledge.Patterns {
+			if len(p.CausalChain) > 0 {
+				fmt.Println()
+				fmt.Printf("Failure Chain: %s (observed %d times)\n", p.Title, p.OccurrenceCount)
+				for i, link := range p.CausalChain {
+					fmt.Printf("  %d. %s\n", link.Order, link.Event)
+					if i < len(p.CausalChain)-1 && link.TypicalDelay != "" {
+						fmt.Printf("     ↓ (%s)\n", link.TypicalDelay)
+					}
+				}
+				if p.TypicalBlastRadius != "" || p.TypicalMTTR != "" {
+					fmt.Printf("  → Blast radius: %s | Typical MTTR: %s\n", p.TypicalBlastRadius, p.TypicalMTTR)
+				}
+				break // Show the top pattern's chain
+			}
+		}
+	}
+
+	// Service incident history
+	if ctx.ServiceContext != nil && ctx.ServiceContext.Incidents != nil {
+		inc := ctx.ServiceContext.Incidents
+		fmt.Println()
+		fmt.Printf("Service: %s (tier: %s)\n", ctx.ServiceContext.ServiceName, ctx.ServiceContext.Tier)
+		fmt.Printf("  Incidents: %d total (%d in last 30 days)\n", inc.TotalIncidents, inc.Last30Days)
+		if inc.CriticalCount > 0 || inc.HighCount > 0 {
+			fmt.Printf("  Severity: %d critical, %d high\n", inc.CriticalCount, inc.HighCount)
+		}
+		if inc.AverageMTTR != nil {
+			fmt.Printf("  Avg MTTR: %d minutes\n", *inc.AverageMTTR)
+		}
+		if inc.MostRecentTitle != "" {
+			fmt.Printf("  Most recent: %s\n", inc.MostRecentTitle)
+		}
+	}
+
+	// Controls with evidence status
+	if len(ctx.Controls) > 0 {
+		fmt.Println()
+		fmt.Println("Controls:")
+		for _, cc := range ctx.Controls {
+			evidenceStatus := "✓ has evidence"
+			if len(cc.ExistingEvidence) == 0 {
+				evidenceStatus = "✗ no evidence"
+			} else if len(cc.EvidenceGaps) > 0 {
+				evidenceStatus = fmt.Sprintf("◐ partial (missing: %s)", strings.Join(cc.EvidenceGaps, ", "))
+			}
+			fmt.Printf("  %s [%s] %s — %s\n",
+				cc.Control.ControlCode, cc.Control.Type, cc.Control.Name, evidenceStatus)
+		}
+	}
+
+	// Proven procedures
+	if len(ctx.Knowledge.Procedures) > 0 {
+		fmt.Println()
+		fmt.Println("Proven Remediation Approaches:")
+		for i, p := range ctx.Knowledge.Procedures {
+			label := ""
+			if i == 0 {
+				label = " [Recommended]"
+			}
+			successRate := 0.0
+			if p.AppliedCount > 0 {
+				successRate = float64(p.SuccessCount) / float64(p.AppliedCount) * 100
+			}
+			fmt.Printf("  %d.%s %s (%.0f%% success, applied %d times)\n",
+				i+1, label, p.Title, successRate, p.AppliedCount)
+		}
+	}
+
+	// Relevant facts
+	if len(ctx.Knowledge.Facts) > 0 {
+		fmt.Println()
+		fmt.Println("Key Facts:")
+		for _, f := range ctx.Knowledge.Facts {
+			badge := ""
+			if f.ValidationStatus == "analyst_validated" {
+				badge = " [validated]"
+			}
+			fmt.Printf("  • %s%s\n", f.Content, badge)
+		}
+	}
+
+	// Quick reference
+	fmt.Println()
+	fmt.Println("Next Steps:")
+	fmt.Printf("  /polaris:risk-guidance %s    — Full remediation plan\n", ctx.Risk.RiskCode)
+	fmt.Printf("  /polaris:remediate-risks %s  — Auto-implement fixes\n", ctx.Risk.RiskCode)
 }
 
 // cmdRiskStale lists stale risks
