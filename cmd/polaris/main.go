@@ -404,7 +404,7 @@ func cmdStatus() {
 	if err != nil || len(plugins) == 0 {
 		fmt.Println("  No plugins installed")
 		fmt.Println("  Run 'polaris plugin install <editor>' to install")
-		fmt.Println("  Available: claude, codex, gemini, cursor, windsurf")
+		fmt.Println("  Available: claude, codex, gemini, cursor, windsurf, copilot, augment")
 	} else {
 		for _, p := range plugins {
 			if serverVersion != "" && p.Version != serverVersion {
@@ -459,7 +459,7 @@ func cmdPlugin(args []string) {
 		fmt.Fprintln(os.Stderr, `Usage: polaris plugin <command>
 
 Commands:
-  install <editor>   Install skills for editor (claude, codex, gemini, cursor, windsurf)
+  install <editor>   Install skills for editor (claude, codex, gemini, cursor, windsurf, copilot, augment)
   update [editor]    Update skills to latest version
   list               List installed skills
   remove <editor>    Remove installed skills
@@ -478,7 +478,7 @@ Examples:
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "Error: editor name required")
 			fmt.Fprintln(os.Stderr, "Usage: polaris plugin install <editor>")
-			fmt.Fprintln(os.Stderr, "Available: claude, codex, gemini, cursor, windsurf")
+			fmt.Fprintln(os.Stderr, "Available: claude, codex, gemini, cursor, windsurf, copilot, augment")
 			os.Exit(1)
 		}
 		editor := args[1]
@@ -3388,6 +3388,8 @@ var editorBinaries = []struct {
 	{"gemini", "gemini"},
 	{"cursor", "cursor"},
 	{"windsurf", "windsurf"},
+	{"copilot", "copilot"},
+	{"augment", "auggie"},
 }
 
 // isEditorAvailable checks if the given CLI binary is on the PATH.
@@ -3513,7 +3515,7 @@ func cmdInit(args []string) {
 
 		if len(detectedEditors) == 0 {
 			fmt.Println("Skills: No supported editors detected on PATH")
-			fmt.Println("  Supported: claude, codex, gemini, cursor, windsurf")
+			fmt.Println("  Supported: claude, codex, gemini, cursor, windsurf, copilot, augment")
 			fmt.Println("  Install an editor, then run: polaris plugin install <editor>")
 		}
 
@@ -4255,8 +4257,14 @@ func getPluginDir(editor, version string) (string, error) {
 	case "windsurf":
 		// Windsurf skills: ~/.codeium/windsurf/skills/ (tarball has {name}/SKILL.md layout)
 		return filepath.Join(home, ".codeium", "windsurf", "skills"), nil
+	case "copilot":
+		// Copilot: ~/.copilot/ (tarball has skills/{name}/SKILL.md + agents/polaris-*.agent.md)
+		return filepath.Join(home, ".copilot"), nil
+	case "augment":
+		// Augment: ~/.augment/ (tarball has skills/{name}/SKILL.md + agents/polaris-*.md)
+		return filepath.Join(home, ".augment"), nil
 	default:
-		return "", fmt.Errorf("unsupported editor: %s (available: claude, codex, gemini, cursor, windsurf)", editor)
+		return "", fmt.Errorf("unsupported editor: %s (available: claude, codex, gemini, cursor, windsurf, copilot, augment, copilot, augment)", editor)
 	}
 }
 
@@ -4572,7 +4580,7 @@ func listInstalledPlugins() {
 		fmt.Println("No Polaris plugins installed.")
 		fmt.Println("\nTo install:")
 		fmt.Println("  polaris plugin install <editor>")
-		fmt.Println("  Available: claude, codex, gemini, cursor, windsurf")
+		fmt.Println("  Available: claude, codex, gemini, cursor, windsurf, copilot, augment")
 		return
 	}
 
@@ -4674,6 +4682,16 @@ func removePlugin(editor string) error {
 		skillsDir := filepath.Join(home, ".codeium", "windsurf", "skills")
 		removeSkillDirs(skillsDir)
 
+	case "copilot":
+		// Remove skill subdirectories + polaris-*.agent.md agent files
+		removeSkillDirs(filepath.Join(home, ".copilot", "skills"))
+		removeCopilotAgentFiles(filepath.Join(home, ".copilot", "agents"))
+
+	case "augment":
+		// Remove skill subdirectories + polaris-*.md agent files
+		removeSkillDirs(filepath.Join(home, ".augment", "skills"))
+		removeAgentFiles(filepath.Join(home, ".augment", "agents"))
+
 	default:
 		return fmt.Errorf("unsupported editor: %s", editor)
 	}
@@ -4751,6 +4769,20 @@ func enableGeminiSubagents() error {
 // removeAgentFiles removes polaris-*.md agent files from a directory
 func removeAgentFiles(agentsDir string) {
 	matches, err := filepath.Glob(filepath.Join(agentsDir, "polaris-*.md"))
+	if err != nil {
+		return
+	}
+	for _, f := range matches {
+		if err := os.Remove(f); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not remove %s: %v\n", f, err)
+		}
+	}
+}
+
+// removeCopilotAgentFiles removes polaris-*.agent.md agent files from a directory.
+// Copilot uses the .agent.md extension instead of .md.
+func removeCopilotAgentFiles(agentsDir string) {
+	matches, err := filepath.Glob(filepath.Join(agentsDir, "polaris-*.agent.md"))
 	if err != nil {
 		return
 	}
@@ -5088,6 +5120,14 @@ func printPostInstallInstructions(editor, location string) {
 		fmt.Printf("Skills installed to: %s\n\n", location)
 		fmt.Println("Skills are auto-discovered by Windsurf.")
 		fmt.Println("Use @detect-risks or ask Cascade naturally.")
+	case "copilot":
+		fmt.Printf("Skills and agents installed to: %s\n\n", location)
+		fmt.Println("Skills and agents are auto-discovered by Copilot CLI.")
+		fmt.Println("Try: \"scan this codebase for reliability risks\"")
+	case "augment":
+		fmt.Printf("Skills and agents installed to: %s\n\n", location)
+		fmt.Println("Skills and agents are auto-discovered by Augment CLI.")
+		fmt.Println("Try: \"scan this codebase for reliability risks\"")
 	}
 }
 
@@ -5137,7 +5177,7 @@ func printInitSummary(cfg *ProjectConfig, pluginInstalled bool, pluginVersion st
 		fmt.Println("  polaris login               Set up API credentials")
 	}
 	if !pluginInstalled {
-		fmt.Println("  polaris plugin install <editor>  Install skills (claude, codex, gemini, cursor, windsurf)")
+		fmt.Println("  polaris plugin install <editor>  Install skills (claude, codex, gemini, cursor, windsurf, copilot, augment)")
 	}
 	fmt.Println("  polaris status              Check API connection")
 	fmt.Println("  /polaris:detect-risks       Run first risk scan")
