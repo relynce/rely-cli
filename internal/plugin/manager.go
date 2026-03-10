@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relynce/polaris-cli/internal/api"
-	"github.com/relynce/polaris-cli/internal/config"
+	"github.com/relynce/rely-cli/internal/api"
+	"github.com/relynce/rely-cli/internal/config"
 )
 
 // GetPluginDir returns the installation directory for a given editor's plugin.
@@ -30,7 +30,7 @@ func GetPluginDir(editor, version string) (string, error) {
 
 	switch editor {
 	case "claude":
-		return filepath.Join(home, ".claude", "plugins", "cache", "polaris-api", "polaris", version), nil
+		return filepath.Join(home, ".claude", "plugins", "cache", "relynce-api", "relynce", version), nil
 	case "codex":
 		return filepath.Join(home, ".agents", "skills"), nil
 	case "gemini":
@@ -98,9 +98,9 @@ func ExtractTarball(tarballData []byte, targetDir string) error {
 	return nil
 }
 
-// InstallPlugin downloads and installs the Polaris plugin for the specified editor
+// InstallPlugin downloads and installs the Relynce plugin for the specified editor
 func InstallPlugin(editor string) error {
-	fmt.Printf("Installing Polaris plugin for %s...\n", editor)
+	fmt.Printf("Installing Relynce plugin for %s...\n", editor)
 
 	if editor == "claude" {
 		if err := CleanupOldClaudeInstallations(); err != nil {
@@ -110,7 +110,7 @@ func InstallPlugin(editor string) error {
 
 	cfg, err := config.LoadConfig()
 	if err != nil || cfg == nil || cfg.APIKey == "" || cfg.APIURL == "" {
-		return fmt.Errorf("no API credentials configured — run 'polaris login' first")
+		return fmt.Errorf("no API credentials configured — run 'rely login' first")
 	}
 
 	client := &http.Client{Timeout: 60 * time.Second}
@@ -134,7 +134,7 @@ func InstallPlugin(editor string) error {
 		return fmt.Errorf("download failed (status %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	version := strings.TrimPrefix(filepath.Base(resp.Header.Get("Content-Disposition")), "attachment; filename=polaris-plugin-")
+	version := strings.TrimPrefix(filepath.Base(resp.Header.Get("Content-Disposition")), "attachment; filename=relynce-plugin-")
 	version = strings.TrimSuffix(version, ".tar.gz")
 	checksum := resp.Header.Get("X-Checksum")
 
@@ -211,7 +211,7 @@ func UpdatePlugin(editor string) error {
 	return InstallPlugin(editor)
 }
 
-// ListInstalledPlugins lists all installed Polaris plugins
+// ListInstalledPlugins lists all installed Relynce plugins
 func ListInstalledPlugins() {
 	plugins, err := GetInstalledPlugins()
 	if err != nil {
@@ -220,9 +220,9 @@ func ListInstalledPlugins() {
 	}
 
 	if len(plugins) == 0 {
-		fmt.Println("No Polaris plugins installed.")
+		fmt.Println("No Relynce plugins installed.")
 		fmt.Println("\nTo install:")
-		fmt.Println("  polaris plugin install <editor>")
+		fmt.Println("  rely plugin install <editor>")
 		fmt.Println("  Available: claude, codex, gemini, cursor, windsurf, copilot, augment")
 		return
 	}
@@ -230,7 +230,7 @@ func ListInstalledPlugins() {
 	cfg, _ := config.LoadConfig()
 	serverVersion := api.FetchServerPluginVersion(cfg)
 
-	fmt.Println("Installed Polaris plugins:")
+	fmt.Println("Installed Relynce plugins:")
 	for _, p := range plugins {
 		fmt.Printf("\n  %s\n", p.Editor)
 		fmt.Printf("    Version:   %s\n", p.Version)
@@ -246,7 +246,7 @@ func ListInstalledPlugins() {
 	if serverVersion != "" {
 		for _, p := range plugins {
 			if p.Version != serverVersion {
-				fmt.Printf("\nRun 'polaris plugin update' to upgrade.\n")
+				fmt.Printf("\nRun 'rely plugin update' to upgrade.\n")
 				break
 			}
 		}
@@ -260,7 +260,7 @@ func RemovePlugin(editor string) error {
 		return fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	fmt.Printf("Remove Polaris plugin for %s? [y/N] ", editor)
+	fmt.Printf("Remove Relynce plugin for %s? [y/N] ", editor)
 	reader := bufio.NewReader(os.Stdin)
 	response, _ := reader.ReadString('\n')
 	response = strings.ToLower(strings.TrimSpace(response))
@@ -273,7 +273,7 @@ func RemovePlugin(editor string) error {
 	switch editor {
 	case "claude":
 		fmt.Println("Uninstalling plugin via Claude Code CLI...")
-		cmd := exec.Command("claude", "plugin", "uninstall", "polaris@polaris-local")
+		cmd := exec.Command("claude", "plugin", "uninstall", "rely@relynce-local")
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: claude plugin uninstall failed: %v\n", err)
@@ -282,7 +282,7 @@ func RemovePlugin(editor string) error {
 			fmt.Println(string(output))
 		}
 
-		marketplaceDir := filepath.Join(home, ".polaris", "marketplace")
+		marketplaceDir := filepath.Join(home, ".relynce", "marketplace")
 		if err := os.RemoveAll(marketplaceDir); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not remove marketplace: %v\n", err)
 		} else {
@@ -290,7 +290,7 @@ func RemovePlugin(editor string) error {
 		}
 
 		fmt.Println("Removing marketplace registration...")
-		cmd = exec.Command("claude", "plugin", "marketplace", "remove", "polaris-local")
+		cmd = exec.Command("claude", "plugin", "marketplace", "remove", "relynce-local")
 		cmd.Run()
 
 	case "codex":
@@ -321,14 +321,14 @@ func RemovePlugin(editor string) error {
 		return fmt.Errorf("unsupported editor: %s", editor)
 	}
 
-	metadataFile := filepath.Join(home, ".polaris", "plugins.json")
+	metadataFile := filepath.Join(home, ".relynce", "plugins.json")
 	_ = RemovePluginFromMetadata(editor, metadataFile)
 
 	fmt.Printf("✓ Removed %s plugin\n", editor)
 	return nil
 }
 
-// RemoveSkillDirs removes known Polaris skill subdirectories from a base directory
+// RemoveSkillDirs removes known Relynce skill subdirectories from a base directory
 func RemoveSkillDirs(baseDir string) {
 	for _, name := range PolarisSkillNames {
 		dir := filepath.Join(baseDir, name)
@@ -386,9 +386,9 @@ func EnableGeminiSubagents() error {
 	return nil
 }
 
-// RemoveAgentFiles removes polaris-*.md agent files from a directory
+// RemoveAgentFiles removes rely-*.md agent files from a directory
 func RemoveAgentFiles(agentsDir string) {
-	matches, err := filepath.Glob(filepath.Join(agentsDir, "polaris-*.md"))
+	matches, err := filepath.Glob(filepath.Join(agentsDir, "rely-*.md"))
 	if err != nil {
 		return
 	}
@@ -399,9 +399,9 @@ func RemoveAgentFiles(agentsDir string) {
 	}
 }
 
-// RemoveCopilotAgentFiles removes polaris-*.agent.md agent files from a directory.
+// RemoveCopilotAgentFiles removes rely-*.agent.md agent files from a directory.
 func RemoveCopilotAgentFiles(agentsDir string) {
-	matches, err := filepath.Glob(filepath.Join(agentsDir, "polaris-*.agent.md"))
+	matches, err := filepath.Glob(filepath.Join(agentsDir, "rely-*.agent.md"))
 	if err != nil {
 		return
 	}
@@ -414,19 +414,19 @@ func RemoveCopilotAgentFiles(agentsDir string) {
 
 // PrintPostInstallInstructions prints editor-specific next steps
 func PrintPostInstallInstructions(editor, location string) {
-	fmt.Printf("\n✓ Polaris skills installed for %s\n\n", editor)
+	fmt.Printf("\n✓ Relynce skills installed for %s\n\n", editor)
 
 	switch editor {
 	case "claude":
 		fmt.Println("To use the plugin:")
 		fmt.Println("  1. Add to your settings.json:")
-		fmt.Printf("     \"enabledPlugins\": [\"polaris@%s\"]\n\n", location)
+		fmt.Printf("     \"enabledPlugins\": [\"rely@%s\"]\n\n", location)
 		fmt.Println("  2. Or start Claude Code with:")
 		fmt.Printf("     claude --plugin-dir %s\n\n", location)
 		fmt.Println("Available commands:")
-		fmt.Println("  /polaris:detect-risks     - Scan for reliability risks")
-		fmt.Println("  /polaris:analyze-risks    - Analyze detected risks")
-		fmt.Println("  /polaris:remediate-risks  - Generate remediation plans")
+		fmt.Println("  /rely:detect-risks     - Scan for reliability risks")
+		fmt.Println("  /rely:analyze-risks    - Analyze detected risks")
+		fmt.Println("  /rely:remediate-risks  - Generate remediation plans")
 	case "codex":
 		fmt.Printf("Skills installed to: %s\n\n", location)
 		fmt.Println("Skills are auto-discovered by Codex CLI.")
@@ -459,7 +459,7 @@ func PrintPostInstallInstructions(editor, location string) {
 // CmdPlugin handles plugin management (install, update, list, remove).
 func CmdPlugin(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, `Usage: polaris plugin <command>
+		fmt.Fprintln(os.Stderr, `Usage: rely plugin <command>
 
 Commands:
   install <editor>   Install skills for editor (claude, codex, gemini, cursor, windsurf, copilot, augment)
@@ -468,11 +468,11 @@ Commands:
   remove <editor>    Remove installed skills
 
 Examples:
-  polaris plugin install claude    Install Claude Code plugin
-  polaris plugin install codex     Install Codex CLI skills
-  polaris plugin install gemini    Install Gemini CLI skills + agents
-  polaris plugin update            Update all installed plugins
-  polaris plugin list              Show installed plugins`)
+  rely plugin install claude    Install Claude Code plugin
+  rely plugin install codex     Install Codex CLI skills
+  rely plugin install gemini    Install Gemini CLI skills + agents
+  rely plugin update            Update all installed plugins
+  rely plugin list              Show installed plugins`)
 		os.Exit(1)
 	}
 
@@ -480,7 +480,7 @@ Examples:
 	case "install":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "Error: editor name required")
-			fmt.Fprintln(os.Stderr, "Usage: polaris plugin install <editor>")
+			fmt.Fprintln(os.Stderr, "Usage: rely plugin install <editor>")
 			fmt.Fprintln(os.Stderr, "Available: claude, codex, gemini, cursor, windsurf, copilot, augment")
 			os.Exit(1)
 		}
@@ -503,7 +503,7 @@ Examples:
 	case "remove", "uninstall":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "Error: editor name required")
-			fmt.Fprintln(os.Stderr, "Usage: polaris plugin remove <editor>")
+			fmt.Fprintln(os.Stderr, "Usage: rely plugin remove <editor>")
 			os.Exit(1)
 		}
 		editor := args[1]
@@ -513,7 +513,7 @@ Examples:
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown plugin command: %s\n", args[0])
-		fmt.Fprintln(os.Stderr, "Usage: polaris plugin <install|update|list|remove>")
+		fmt.Fprintln(os.Stderr, "Usage: rely plugin <install|update|list|remove>")
 		os.Exit(1)
 	}
 }

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/relynce/polaris-cli/internal/api"
-	"github.com/relynce/polaris-cli/internal/config"
-	"github.com/relynce/polaris-cli/internal/plugin"
+	"github.com/relynce/rely-cli/internal/api"
+	"github.com/relynce/rely-cli/internal/config"
+	"github.com/relynce/rely-cli/internal/plugin"
 	"golang.org/x/term"
 )
 
@@ -24,7 +24,7 @@ func CmdLogin() {
 	if defaultURL == "" {
 		defaultURL = "https://api-dev.relynce.ai"
 	}
-	fmt.Printf("Polaris API URL [%s]: ", defaultURL)
+	fmt.Printf("Relynce API URL [%s]: ", defaultURL)
 	apiURL, _ := reader.ReadString('\n')
 	apiURL = strings.TrimSpace(apiURL)
 	if apiURL == "" {
@@ -81,7 +81,7 @@ func CmdLogin() {
 		fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("Configuration saved to ~/.polaris/config.yaml")
+	fmt.Println("Configuration saved to ~/.relynce/config.yaml")
 }
 
 // CmdLogout removes stored credentials
@@ -102,7 +102,7 @@ func CmdLogout() {
 // Takes version and gitHash as params since they're defined in main
 func CmdStatus(version, gitHash string) {
 	cfg := api.LoadAndResolveConfig()
-	fmt.Printf("Polaris CLI v%s (%s)\n", version, gitHash)
+	fmt.Printf("Relynce CLI v%s (%s)\n", version, gitHash)
 	fmt.Printf("API URL: %s\n", cfg.APIURL)
 	if len(cfg.APIKey) > 8 {
 		fmt.Printf("API Key: %s...%s\n", cfg.APIKey[:4], cfg.APIKey[len(cfg.APIKey)-4:])
@@ -125,13 +125,13 @@ func CmdStatus(version, gitHash string) {
 	plugins, err := plugin.GetInstalledPlugins()
 	if err != nil || len(plugins) == 0 {
 		fmt.Println("  No plugins installed")
-		fmt.Println("  Run 'polaris plugin install <editor>' to install")
+		fmt.Println("  Run 'rely plugin install <editor>' to install")
 		fmt.Println("  Available: claude, codex, gemini, cursor, windsurf, copilot, augment")
 	} else {
 		for _, p := range plugins {
 			if serverVersion != "" && p.Version != serverVersion {
 				fmt.Printf("  %s: v%s (update available: v%s)\n", p.Editor, p.Version, serverVersion)
-				fmt.Printf("    Run 'polaris plugin update %s' to upgrade\n", p.Editor)
+				fmt.Printf("    Run 'rely plugin update %s' to upgrade\n", p.Editor)
 			} else if serverVersion != "" {
 				fmt.Printf("  %s: v%s (up to date)\n", p.Editor, p.Version)
 			} else {

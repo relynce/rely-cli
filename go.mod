@@ -1,4 +1,4 @@
-module github.com/relynce/polaris-cli
+module github.com/relynce/rely-cli
 
 go 1.25
 

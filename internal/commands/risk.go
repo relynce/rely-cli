@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/relynce/polaris-cli/internal/api"
-	"github.com/relynce/polaris-cli/internal/config"
-	"github.com/relynce/polaris-cli/internal/display"
+	"github.com/relynce/rely-cli/internal/api"
+	"github.com/relynce/rely-cli/internal/config"
+	"github.com/relynce/rely-cli/internal/display"
 )
 
 // Risk represents a risk in the system
@@ -178,7 +178,7 @@ func CmdRisk(args []string) {
 }
 
 func printRiskUsage() {
-	fmt.Println(`Usage: polaris risk <command> [options]
+	fmt.Println(`Usage: rely risk <command> [options]
 
 Commands:
   list                    List all risks in the register
@@ -197,10 +197,10 @@ Options:
   --category <category>  Filter by category (for list command)
 
 Examples:
-  polaris risk list
-  polaris risk show R-001
-  polaris risk context R-001
-  polaris risk resolve R-001`)
+  rely risk list
+  rely risk show R-001
+  rely risk context R-001
+  rely risk resolve R-001`)
 }
 
 // CmdRiskList lists all risks in the register
@@ -280,7 +280,7 @@ func CmdRiskList(args []string) {
 // CmdRiskShow shows detailed information about a specific risk
 func CmdRiskShow(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: polaris risk show <risk-code>")
+		fmt.Fprintln(os.Stderr, "Usage: rely risk show <risk-code>")
 		os.Exit(1)
 	}
 
@@ -358,7 +358,7 @@ func CmdRiskShow(args []string) {
 // CmdRiskContext shows full context for a risk
 func CmdRiskContext(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: polaris risk context <risk-code>")
+		fmt.Fprintln(os.Stderr, "Usage: rely risk context <risk-code>")
 		os.Exit(1)
 	}
 
@@ -591,7 +591,7 @@ func CmdRiskStale(args []string) {
 // CmdRiskClose closes a risk (no longer applicable)
 func CmdRiskClose(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: polaris risk close <risk-code>")
+		fmt.Fprintln(os.Stderr, "Usage: rely risk close <risk-code>")
 		os.Exit(1)
 	}
 
@@ -617,7 +617,7 @@ func CmdRiskClose(args []string) {
 // CmdRiskResolve marks a risk as resolved
 func CmdRiskResolve(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: polaris risk resolve <risk-code>")
+		fmt.Fprintln(os.Stderr, "Usage: rely risk resolve <risk-code>")
 		os.Exit(1)
 	}
 
@@ -643,7 +643,7 @@ func CmdRiskResolve(args []string) {
 // CmdRiskAcknowledge acknowledges a risk (tracking for future action)
 func CmdRiskAcknowledge(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: polaris risk acknowledge <risk-code>")
+		fmt.Fprintln(os.Stderr, "Usage: rely risk acknowledge <risk-code>")
 		os.Exit(1)
 	}
 
@@ -669,7 +669,7 @@ func CmdRiskAcknowledge(args []string) {
 // CmdRiskAccept accepts a risk (intentional decision to retain)
 func CmdRiskAccept(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: polaris risk accept <risk-code>")
+		fmt.Fprintln(os.Stderr, "Usage: rely risk accept <risk-code>")
 		os.Exit(1)
 	}
 

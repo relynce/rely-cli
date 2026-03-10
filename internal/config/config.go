@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	configDir  = ".polaris"
+	configDir  = ".relynce"
 	configFile = "config.yaml"
 )
 

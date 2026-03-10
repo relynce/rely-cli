@@ -7,56 +7,56 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/relynce/polaris-cli/internal/api"
-	"github.com/relynce/polaris-cli/internal/config"
-	"github.com/relynce/polaris-cli/internal/plugin"
-	"github.com/relynce/polaris-cli/internal/project"
+	"github.com/relynce/rely-cli/internal/api"
+	"github.com/relynce/rely-cli/internal/config"
+	"github.com/relynce/rely-cli/internal/plugin"
+	"github.com/relynce/rely-cli/internal/project"
 	"gopkg.in/yaml.v3"
 )
 
-const agentsMdTemplate = `## Polaris
+const agentsMdTemplate = `## Relynce
 
-This project uses Polaris for reliability risk analysis. The following skills are available:
+This project uses Relynce for reliability risk analysis. The following skills are available:
 
 ### Risk Detection
-- ` + "`/polaris:detect-risks`" + ` — Scan code for reliability risks and submit findings
-- ` + "`/polaris:risk-guidance`" + ` — Get detailed guidance for a specific risk
+- ` + "`/rely:detect-risks`" + ` — Scan code for reliability risks and submit findings
+- ` + "`/rely:risk-guidance`" + ` — Get detailed guidance for a specific risk
 
 ### Risk Remediation
-- ` + "`/polaris:remediate-risks`" + ` — Auto-implement fixes for detected risks
+- ` + "`/rely:remediate-risks`" + ` — Auto-implement fixes for detected risks
 
 ### Quick Reference
-- Run ` + "`polaris risk list`" + ` to see current risks
-- Run ` + "`polaris risk show <code>`" + ` for risk details with mapped controls
-- Run ` + "`polaris control show <code>`" + ` for control implementation guidance
+- Run ` + "`rely risk list`" + ` to see current risks
+- Run ` + "`rely risk show <code>`" + ` for risk details with mapped controls
+- Run ` + "`rely control show <code>`" + ` for control implementation guidance
 `
 
 func printInitUsage() {
-	fmt.Println(`polaris init - Initialize Polaris for this repository
+	fmt.Println(`rely init - Initialize Relynce for this repository
 
 Usage:
-  polaris init [options]
+  rely init [options]
 
 Options:
   --project <name>    Set project name (default: from git remote or directory name)
-  --skip-plugin       Skip installing the Polaris plugin for Claude Code
+  --skip-plugin       Skip installing the Relynce plugin for Claude Code
   --force             Overwrite existing config and plugin without prompting
   -y, --yes           Accept all defaults non-interactively
 
 What it does:
-  1. Creates .polaris.yaml with project name and detected components
-  2. Installs the Polaris plugin for Claude Code (if available)
-  3. Adds Polaris sections to AGENTS.md (creates or appends)
+  1. Creates .relynce.yaml with project name and detected components
+  2. Installs the Relynce plugin for Claude Code (if available)
+  3. Adds Relynce sections to AGENTS.md (creates or appends)
   4. Checks if API credentials are configured
 
 Examples:
-  polaris init                         Interactive setup
-  polaris init --project my-service    Set project name directly
-  polaris init -y                      Accept all auto-detected defaults
-  polaris init --force                 Overwrite existing config`)
+  rely init                         Interactive setup
+  rely init --project my-service    Set project name directly
+  rely init -y                      Accept all auto-detected defaults
+  rely init --force                 Overwrite existing config`)
 }
 
-// CmdInit initializes Polaris for a repository
+// CmdInit initializes Relynce for a repository
 func CmdInit(args []string) {
 	var projectName string
 	var skipPlugin bool
@@ -88,41 +88,41 @@ func CmdInit(args []string) {
 		}
 	}
 
-	fmt.Println("Initializing Polaris...")
+	fmt.Println("Initializing Relynce...")
 	fmt.Println()
 
 	// Step 1: Require git repo
 	gitRoot := project.DetectGitRoot()
 	if gitRoot == "" {
 		fmt.Fprintln(os.Stderr, "Error: not a git repository.")
-		fmt.Fprintln(os.Stderr, "Polaris must be initialized inside a git repository.")
+		fmt.Fprintln(os.Stderr, "Relynce must be initialized inside a git repository.")
 		fmt.Fprintln(os.Stderr, "Run 'git init' first, then try again.")
 		os.Exit(1)
 	}
 
-	// Step 2: Generate .polaris.yaml
-	configPath := filepath.Join(gitRoot, ".polaris.yaml")
+	// Step 2: Generate .relynce.yaml
+	configPath := filepath.Join(gitRoot, ".relynce.yaml")
 	writeConfig := true
 
 	if _, err := os.Stat(configPath); err == nil {
 		if yesAll {
 			writeConfig = false
-			fmt.Println("Keeping existing .polaris.yaml (use interactive mode to overwrite)")
+			fmt.Println("Keeping existing .relynce.yaml (use interactive mode to overwrite)")
 		} else {
 			existing, _ := os.ReadFile(configPath)
-			fmt.Println("Existing .polaris.yaml found:")
+			fmt.Println("Existing .relynce.yaml found:")
 			fmt.Println(string(existing))
 
 			var overwrite bool
 			err := huh.NewConfirm().
-				Title("Overwrite existing .polaris.yaml?").
+				Title("Overwrite existing .relynce.yaml?").
 				Affirmative("Yes").
 				Negative("No").
 				Value(&overwrite).
 				Run()
 			if err != nil || !overwrite {
 				writeConfig = false
-				fmt.Println("Keeping existing .polaris.yaml")
+				fmt.Println("Keeping existing .relynce.yaml")
 			}
 		}
 	}
@@ -131,10 +131,10 @@ func CmdInit(args []string) {
 	if writeConfig {
 		cfg = buildProjectConfig(gitRoot, projectName, yesAll)
 		if err := project.WriteProjectConfig(configPath, cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing .polaris.yaml: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error writing .relynce.yaml: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Created .polaris.yaml (project: %s, %d components)\n", cfg.Project, len(cfg.Components))
+		fmt.Printf("Created .relynce.yaml (project: %s, %d components)\n", cfg.Project, len(cfg.Components))
 	} else {
 		// Load existing config for summary
 		data, _ := os.ReadFile(configPath)
@@ -168,7 +168,7 @@ func CmdInit(args []string) {
 		if len(detectedEditors) == 0 {
 			fmt.Println("Skills: No supported editors detected on PATH")
 			fmt.Println("  Supported: claude, codex, gemini, cursor, windsurf, copilot, augment")
-			fmt.Println("  Install an editor, then run: polaris plugin install <editor>")
+			fmt.Println("  Install an editor, then run: rely plugin install <editor>")
 		}
 
 		for _, editorName := range detectedEditors {
@@ -180,7 +180,7 @@ func CmdInit(args []string) {
 					doUpdate := force || yesAll
 					if !doUpdate {
 						err := huh.NewConfirm().
-							Title(fmt.Sprintf("Update Polaris skills for %s? (v%s → v%s)", editorName, existing.Version, serverVersion)).
+							Title(fmt.Sprintf("Update Relynce skills for %s? (v%s → v%s)", editorName, existing.Version, serverVersion)).
 							Affirmative("Yes").
 							Negative("No").
 							Value(&doUpdate).
@@ -211,7 +211,7 @@ func CmdInit(args []string) {
 				doInstall := yesAll
 				if !yesAll {
 					err := huh.NewConfirm().
-						Title(fmt.Sprintf("Install Polaris skills for %s?", editorName)).
+						Title(fmt.Sprintf("Install Relynce skills for %s?", editorName)).
 						Affirmative("Yes").
 						Negative("No").
 						Value(&doInstall).
@@ -249,11 +249,11 @@ func CmdInit(args []string) {
 		agentsMdAction = action
 		switch action {
 		case "created":
-			fmt.Println("Created AGENTS.md with Polaris sections")
+			fmt.Println("Created AGENTS.md with Relynce sections")
 		case "appended":
-			fmt.Println("Appended Polaris sections to AGENTS.md")
+			fmt.Println("Appended Relynce sections to AGENTS.md")
 		case "updated":
-			fmt.Println("Updated Polaris sections in AGENTS.md")
+			fmt.Println("Updated Relynce sections in AGENTS.md")
 		case "skipped":
 			fmt.Println("AGENTS.md: Skipped")
 		}
@@ -270,7 +270,7 @@ func CmdInit(args []string) {
 		fmt.Printf("Credentials: Configured (API URL: %s)\n", credentialsURL)
 	} else {
 		fmt.Println("Credentials: Not configured")
-		fmt.Println("  Run 'polaris login' to set up API credentials.")
+		fmt.Println("  Run 'rely login' to set up API credentials.")
 	}
 	fmt.Println()
 
@@ -398,7 +398,7 @@ func promptComponents() []project.ProjectComponent {
 	return components
 }
 
-// EnsureAgentsMd creates or updates AGENTS.md with Polaris sections
+// EnsureAgentsMd creates or updates AGENTS.md with Relynce sections
 func EnsureAgentsMd(gitRoot string, force, yesAll bool) (string, error) {
 	agentsMdPath := filepath.Join(gitRoot, "AGENTS.md")
 	content, err := os.ReadFile(agentsMdPath)
@@ -415,7 +415,7 @@ func EnsureAgentsMd(gitRoot string, force, yesAll bool) (string, error) {
 	}
 
 	contentStr := string(content)
-	hasPolarisSection := strings.Contains(contentStr, "## Polaris")
+	hasPolarisSection := strings.Contains(contentStr, "## Relynce")
 
 	if !hasPolarisSection {
 		var shouldAppend bool
@@ -423,7 +423,7 @@ func EnsureAgentsMd(gitRoot string, force, yesAll bool) (string, error) {
 			shouldAppend = true
 		} else {
 			err := huh.NewConfirm().
-				Title("AGENTS.md exists but has no Polaris section. Append?").
+				Title("AGENTS.md exists but has no Relynce section. Append?").
 				Affirmative("Yes").
 				Negative("No").
 				Value(&shouldAppend).
@@ -453,7 +453,7 @@ func EnsureAgentsMd(gitRoot string, force, yesAll bool) (string, error) {
 		shouldUpdate = true
 	} else {
 		err := huh.NewConfirm().
-			Title("AGENTS.md already has Polaris section. Update?").
+			Title("AGENTS.md already has Relynce section. Update?").
 			Affirmative("Yes").
 			Negative("No").
 			Value(&shouldUpdate).
@@ -469,14 +469,14 @@ func EnsureAgentsMd(gitRoot string, force, yesAll bool) (string, error) {
 		var inPolarisSection bool
 
 		for i, line := range lines {
-			if strings.TrimSpace(line) == "## Polaris" {
+			if strings.TrimSpace(line) == "## Relynce" {
 				inPolarisSection = true
 				newLines = append(newLines, agentsMdTemplate)
 				continue
 			}
 
 			if inPolarisSection {
-				if strings.HasPrefix(strings.TrimSpace(line), "##") && line != "## Polaris" {
+				if strings.HasPrefix(strings.TrimSpace(line), "##") && line != "## Relynce" {
 					inPolarisSection = false
 					newLines = append(newLines, line)
 				}
@@ -500,7 +500,7 @@ func EnsureAgentsMd(gitRoot string, force, yesAll bool) (string, error) {
 }
 
 func printInitSummary(cfg *project.ProjectConfig, pluginInstalled bool, pluginVersion string, credentialsConfigured bool, agentsMdAction string) {
-	fmt.Println("=== Polaris Initialization Complete ===")
+	fmt.Println("=== Relynce Initialization Complete ===")
 	fmt.Println()
 	fmt.Printf("Project: %s\n", cfg.Project)
 	fmt.Printf("Components: %d\n", len(cfg.Components))
@@ -519,16 +519,16 @@ func printInitSummary(cfg *project.ProjectConfig, pluginInstalled bool, pluginVe
 	if credentialsConfigured {
 		fmt.Println("Credentials: Configured")
 	} else {
-		fmt.Println("Credentials: Not configured — run 'polaris login'")
+		fmt.Println("Credentials: Not configured — run 'rely login'")
 	}
 	fmt.Println()
 	fmt.Println("Next steps:")
 	if !credentialsConfigured {
-		fmt.Println("  1. polaris login")
-		fmt.Println("  2. polaris plugin install claude")
+		fmt.Println("  1. rely login")
+		fmt.Println("  2. rely plugin install claude")
 	} else if !pluginInstalled {
-		fmt.Println("  1. polaris plugin install claude")
+		fmt.Println("  1. rely plugin install claude")
 	}
-	fmt.Println("  - Commit .polaris.yaml and AGENTS.md to your repository")
-	fmt.Println("  - Use /polaris:detect-risks to scan for reliability risks")
+	fmt.Println("  - Commit .relynce.yaml and AGENTS.md to your repository")
+	fmt.Println("  - Use /rely:detect-risks to scan for reliability risks")
 }

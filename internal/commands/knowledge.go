@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/relynce/polaris-cli/internal/api"
-	"github.com/relynce/polaris-cli/internal/display"
+	"github.com/relynce/rely-cli/internal/api"
+	"github.com/relynce/rely-cli/internal/display"
 )
 
 // KnowledgeSearchResult represents a search result from the knowledge API
@@ -199,10 +199,10 @@ func CmdKnowledge(args []string) {
 }
 
 func printKnowledgeUsage() {
-	fmt.Println(`polaris knowledge - Query organizational knowledge base
+	fmt.Println(`rely knowledge - Query organizational knowledge base
 
 Usage:
-  polaris knowledge <subcommand> [options]
+  rely knowledge <subcommand> [options]
 
 Subcommands:
   enrich              Fetch patterns, procedures, and health in one call
@@ -223,10 +223,10 @@ Enrich Options:
   --limit=<n>         Maximum results per section (default 10)
 
 Search Options:
-  polaris knowledge search <query> [--limit=N]
+  rely knowledge search <query> [--limit=N]
 
 Graph-Search Options:
-  polaris knowledge graph-search <query> [--limit=N] [--depth=N] [--types=causes,mitigates]
+  rely knowledge graph-search <query> [--limit=N] [--depth=N] [--types=causes,mitigates]
 
 Facts Options:
   --vertical=<v>      Filter by SRE vertical (e.g., fault-tolerance, monitoring-alerting)
@@ -248,30 +248,30 @@ Patterns Options:
   --limit=<n>         Maximum results (default 20)
 
 Relationships Options:
-  polaris knowledge relationships <entity_type> <entity_id>
+  rely knowledge relationships <entity_type> <entity_id>
   Entity types: fact, procedure, pattern, service, technology, control
 
 Graph Options:
-  polaris knowledge graph <entity_type> <entity_id> [--depth=N] [--min-strength=0.3] [--type=causes,mitigates]
+  rely knowledge graph <entity_type> <entity_id> [--depth=N] [--min-strength=0.3] [--type=causes,mitigates]
 
 Examples:
-  polaris knowledge enrich --vertical=fault-tolerance
-  polaris knowledge enrich --control=RC-018 --query="timeout failure"
-  polaris knowledge search "circuit breaker timeout patterns"
-  polaris knowledge graph-search "timeout failures" --depth=2
-  polaris knowledge facts --vertical=fault-tolerance --technology=go
-  polaris knowledge procedures --control=RC-018
-  polaris knowledge patterns --type=failure_mode --min-occurrences=3
-  polaris knowledge relationships fact fact_abc12
-  polaris knowledge graph fact fact_abc12 --depth=2 --type=causes,mitigates
-  polaris knowledge health`)
+  rely knowledge enrich --vertical=fault-tolerance
+  rely knowledge enrich --control=RC-018 --query="timeout failure"
+  rely knowledge search "circuit breaker timeout patterns"
+  rely knowledge graph-search "timeout failures" --depth=2
+  rely knowledge facts --vertical=fault-tolerance --technology=go
+  rely knowledge procedures --control=RC-018
+  rely knowledge patterns --type=failure_mode --min-occurrences=3
+  rely knowledge relationships fact fact_abc12
+  rely knowledge graph fact fact_abc12 --depth=2 --type=causes,mitigates
+  rely knowledge health`)
 }
 
 // cmdKnowledgeSearch performs a semantic search across all knowledge types
 func cmdKnowledgeSearch(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "Error: search query required")
-		fmt.Fprintln(os.Stderr, "Usage: polaris knowledge search <query> [--limit=N]")
+		fmt.Fprintln(os.Stderr, "Usage: rely knowledge search <query> [--limit=N]")
 		os.Exit(1)
 	}
 
@@ -597,7 +597,7 @@ func cmdKnowledgeHealth() {
 func cmdKnowledgeRelationships(args []string) {
 	if len(args) < 2 {
 		fmt.Fprintln(os.Stderr, "Error: entity type and entity ID required")
-		fmt.Fprintln(os.Stderr, "Usage: polaris knowledge relationships <type> <id>")
+		fmt.Fprintln(os.Stderr, "Usage: rely knowledge relationships <type> <id>")
 		fmt.Fprintln(os.Stderr, "Types: fact, procedure, pattern, service, technology, control")
 		os.Exit(1)
 	}
@@ -648,7 +648,7 @@ func cmdKnowledgeRelationships(args []string) {
 func cmdKnowledgeGraph(args []string) {
 	if len(args) < 2 {
 		fmt.Fprintln(os.Stderr, "Error: entity type and entity ID required")
-		fmt.Fprintln(os.Stderr, "Usage: polaris knowledge graph <type> <id> [--depth=N] [--min-strength=0.3] [--type=causes,mitigates]")
+		fmt.Fprintln(os.Stderr, "Usage: rely knowledge graph <type> <id> [--depth=N] [--min-strength=0.3] [--type=causes,mitigates]")
 		os.Exit(1)
 	}
 
@@ -721,7 +721,7 @@ func cmdKnowledgeGraph(args []string) {
 func cmdKnowledgeGraphSearch(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "Error: search query required")
-		fmt.Fprintln(os.Stderr, "Usage: polaris knowledge graph-search <query> [--limit=N] [--depth=N] [--types=causes,mitigates]")
+		fmt.Fprintln(os.Stderr, "Usage: rely knowledge graph-search <query> [--limit=N] [--depth=N] [--types=causes,mitigates]")
 		os.Exit(1)
 	}
 

@@ -1,8 +1,8 @@
 version: 2
 
 builds:
-  - main: ./cmd/polaris
-    binary: polaris
+  - main: ./cmd/rely
+    binary: rely
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -19,7 +19,7 @@ builds:
 
 archives:
   - format: tar.gz
-    name_template: "polaris_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "rely_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         format: zip
@@ -38,6 +38,6 @@ changelog:
 release:
   github:
     owner: relynce
-    name: polaris-cli
+    name: rely-cli
   draft: false
   prerelease: auto

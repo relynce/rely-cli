@@ -1,12 +1,12 @@
-# Polaris Quickstart Guide
+# Relynce Quickstart Guide
 
-## Welcome to Polaris
+## Welcome to Relynce
 
-Polaris is a reliability risk analysis platform that works in your browser and your IDE. Whether you're a developer, SRE, or engineering leader, Polaris gives you the insights you need to build more resilient systems.
+Relynce is a reliability risk analysis platform that works in your browser and your IDE. Whether you're a developer, SRE, or engineering leader, Relynce gives you the insights you need to build more resilient systems.
 
 ## Accepting Your Invite and First Login
 
-Polaris is currently invite-only. You'll receive an email invitation with a link to get started.
+Relynce is currently invite-only. You'll receive an email invitation with a link to get started.
 
 1. **Click the link** in your invitation email
 2. **Create your account** — sign up with Google, GitHub, Microsoft, or email and password
@@ -15,7 +15,7 @@ Polaris is currently invite-only. You'll receive an email invitation with a link
 
 ## Your First Look Around
 
-Polaris has five main sections accessible from the top navigation:
+Relynce has five main sections accessible from the top navigation:
 
 **Analysis** — Chat-based incident exploration. Ask questions about your organization's historical incidents and get AI-powered answers with sources cited.
 
@@ -31,18 +31,18 @@ If you belong to multiple organizations, use the organization switcher in the he
 
 ## Setting Up Claude Code Integration
 
-The Claude Code integration is how you scan your codebase for reliability risks. These scan results feed into the risk register, map to compliance controls, and populate the dashboards you see in the web UI. To get the most out of Polaris, you'll want to set this up.
+The Claude Code integration is how you scan your codebase for reliability risks. These scan results feed into the risk register, map to compliance controls, and populate the dashboards you see in the web UI. To get the most out of Relynce, you'll want to set this up.
 
 ### Prerequisites
 
 - Claude Code installed and working on your machine
-- A Polaris API key (create one below before installing the CLI)
+- A Relynce API key (create one below before installing the CLI)
 
 ### Step 1: Create an API Key
 
-You'll need an API key to connect the CLI to your Polaris account.
+You'll need an API key to connect the CLI to your Relynce account.
 
-1. Log in to Polaris at [dev.relynce.ai](https://dev.relynce.ai)
+1. Log in to Relynce at [dev.relynce.ai](https://dev.relynce.ai)
 2. Click your profile picture in the top-right corner
 3. Go to **API Keys**
 4. Click **Create New Key**
@@ -52,20 +52,20 @@ You'll need an API key to connect the CLI to your Polaris account.
 
 ### Step 2: Install the CLI
 
-Install the Polaris command-line tool:
+Install the Relynce command-line tool:
 
 ```bash
-go install github.com/relynce/polaris-cli@latest
+go install github.com/relynce/rely-cli/cmd/rely@latest
 ```
 
-Or download a pre-built binary from the [releases page](https://github.com/relynce/polaris-cli/releases).
+Or download a pre-built binary from the [releases page](https://github.com/relynce/rely-cli/releases).
 
 ### Step 3: Configure the CLI
 
 Run the interactive setup — you'll need the API key you copied in Step 1:
 
 ```bash
-polaris login
+rely login
 ```
 
 You'll be prompted for your API URL, API Key, and Organization name.
@@ -73,7 +73,7 @@ You'll be prompted for your API URL, API Key, and Organization name.
 ### Step 4: Verify Your Setup
 
 ```bash
-polaris status
+rely status
 ```
 
 You should see a message confirming your connection.
@@ -83,20 +83,20 @@ You should see a message confirming your connection.
 From within your project's git repository, run:
 
 ```bash
-polaris init
+rely init
 ```
 
-This creates a `.polaris.yaml` project configuration file and installs the Polaris skills for Claude Code.
+This creates a `.relynce.yaml` project configuration file and installs the Relynce skills for Claude Code.
 
 You can also run non-interactively:
 
 ```bash
-polaris init --project my-service -y
+rely init --project my-service -y
 ```
 
-#### Understanding `.polaris.yaml`
+#### Understanding `.relynce.yaml`
 
-The `.polaris.yaml` file identifies your project:
+The `.relynce.yaml` file identifies your project:
 
 ```yaml
 project: my-service
@@ -117,21 +117,21 @@ components:
 Scan your codebase to identify potential reliability issues:
 
 ```
-/polaris:detect-risks
+/rely:detect-risks
 ```
 
-This runs a full scan and saves findings to the risk register. The service name is auto-detected from your `.polaris.yaml`.
+This runs a full scan and saves findings to the risk register. The service name is auto-detected from your `.relynce.yaml`.
 
 You can also scan a different project from your current session:
 
 ```
-/polaris:detect-risks /path/to/other-project
+/rely:detect-risks /path/to/other-project
 ```
 
 For a quick read-only assessment without saving results:
 
 ```
-/polaris:risk-check my-service
+/rely:risk-check my-service
 ```
 
 ### Understand: Learn What the Risk Means
@@ -139,19 +139,19 @@ For a quick read-only assessment without saving results:
 Get context on detected risks and learn how to fix them:
 
 ```
-/polaris:control-guidance RC-015
+/rely:control-guidance RC-015
 ```
 
 Search historical incidents for patterns related to your risk:
 
 ```
-/polaris:incident-patterns "database failover"
+/rely:incident-patterns "database failover"
 ```
 
 Load reliability context for your entire session:
 
 ```
-/polaris:sre-context
+/rely:sre-context
 ```
 
 Or visit the **Risks** tab in the web UI to browse the full risk register and see recommended actions.
@@ -161,35 +161,35 @@ Or visit the **Risks** tab in the web UI to browse the full risk register and se
 1. Implement the fix recommended in the control guidance
 2. Submit evidence that you've addressed the control:
    ```
-   /polaris:submit-evidence RC-015
+   /rely:submit-evidence RC-015
    ```
 3. Review your changes for remaining reliability issues:
    ```
-   /polaris:reliability-review
+   /rely:reliability-review
    ```
 
 ## Quick Reference: All Skills
 
 | Skill | Description |
 |-------|-------------|
-| `/polaris:detect-risks [service or path]` | Full codebase scan, saves risks to the register |
-| `/polaris:risk-check <service>` | Quick assessment without saving results |
-| `/polaris:control-guidance RC-XXX` | Implementation guidance for a specific control |
-| `/polaris:reliability-review` | Analyze your git diff for reliability issues |
-| `/polaris:incident-patterns <query>` | Search historical incidents for patterns |
-| `/polaris:sre-context` | Load full reliability context for your session |
-| `/polaris:submit-evidence RC-XXX` | Record that you've implemented a control |
-| `/polaris:list-open` | List open risks assigned to you |
+| `/rely:detect-risks [service or path]` | Full codebase scan, saves risks to the register |
+| `/rely:risk-check <service>` | Quick assessment without saving results |
+| `/rely:control-guidance RC-XXX` | Implementation guidance for a specific control |
+| `/rely:reliability-review` | Analyze your git diff for reliability issues |
+| `/rely:incident-patterns <query>` | Search historical incidents for patterns |
+| `/rely:sre-context` | Load full reliability context for your session |
+| `/rely:submit-evidence RC-XXX` | Record that you've implemented a control |
+| `/rely:list-open` | List open risks assigned to you |
 
 ## Troubleshooting
 
 **"Not configured" error**
 
-Run `polaris login` to set up your CLI credentials.
+Run `rely login` to set up your CLI credentials.
 
 **"Connection failed" error**
 
-Check that the Polaris server is reachable. Verify your API URL is correct with `polaris status`.
+Check that the Relynce server is reachable. Verify your API URL is correct with `rely status`.
 
 **"Invalid or expired API key" error**
 
@@ -201,11 +201,11 @@ Your API key may not have the required permissions. Delete the old key and creat
 
 **Skills don't show up in Claude Code**
 
-Run `polaris init` to install skills. If you've already run init, try `polaris init --force` to reinstall. Restart Claude Code if needed.
+Run `rely init` to install skills. If you've already run init, try `rely init --force` to reinstall. Restart Claude Code if needed.
 
 ## Next Steps
 
-1. **Run Your First Scan** — Run `/polaris:detect-risks` on one of your team's services. This populates the risk register and compliance dashboards.
+1. **Run Your First Scan** — Run `/rely:detect-risks` on one of your team's services. This populates the risk register and compliance dashboards.
 
 2. **Upload Your Postmortems** — Go to Documents and upload your team's incident reports and RCAs.
 
@@ -215,4 +215,4 @@ Run `polaris init` to install skills. If you've already run init, try `polaris i
 
 ## Questions?
 
-If you get stuck, check the [Troubleshooting](#troubleshooting) section above or reach out to your Polaris administrator.
+If you get stuck, check the [Troubleshooting](#troubleshooting) section above or reach out to your Relynce administrator.

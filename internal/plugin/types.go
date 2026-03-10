@@ -15,7 +15,7 @@ type PluginInfo struct {
 	Location  string `json:"location"`
 }
 
-// PolarisSkillNames lists all Polaris skill directory names for cleanup
+// PolarisSkillNames lists all Relynce skill directory names for cleanup
 var PolarisSkillNames = []string{
 	"detect-risks", "analyze-risks", "remediate-risks", "risk-check",
 	"risk-guidance", "control-guidance", "submit-evidence", "reliability-review",
@@ -36,14 +36,14 @@ var EditorBinaries = []struct {
 	{"augment", "auggie"},
 }
 
-// SavePluginInfo persists plugin metadata to ~/.polaris/plugins.json
+// SavePluginInfo persists plugin metadata to ~/.relynce/plugins.json
 func SavePluginInfo(editor, version, location string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
 
-	metadataDir := filepath.Join(home, ".polaris")
+	metadataDir := filepath.Join(home, ".relynce")
 	if err := os.MkdirAll(metadataDir, 0755); err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func GetInstalledPlugins() ([]PluginInfo, error) {
 		return nil, err
 	}
 
-	metadataFile := filepath.Join(home, ".polaris", "plugins.json")
+	metadataFile := filepath.Join(home, ".relynce", "plugins.json")
 	data, err := os.ReadFile(metadataFile)
 	if err != nil {
 		if os.IsNotExist(err) {

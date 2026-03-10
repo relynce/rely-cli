@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relynce/polaris-cli/internal/config"
+	"github.com/relynce/rely-cli/internal/config"
 )
 
 // LoadAndResolveConfig loads config and resolves org name to UUID.
@@ -21,7 +21,7 @@ func LoadAndResolveConfig() *config.Config {
 		os.Exit(1)
 	}
 	if cfg == nil || cfg.APIKey == "" {
-		fmt.Fprintln(os.Stderr, "Error: Not configured. Run 'polaris login' first.")
+		fmt.Fprintln(os.Stderr, "Error: Not configured. Run 'rely login' first.")
 		os.Exit(1)
 	}
 	if err := ResolveOrganizationID(cfg); err != nil {
@@ -141,7 +141,7 @@ func MakeAPIRequest(cfg *config.Config, method, url string, body []byte) ([]byte
 	respBody, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return nil, fmt.Errorf("authentication failed - run 'polaris login' to reconfigure")
+		return nil, fmt.Errorf("authentication failed - run 'rely login' to reconfigure")
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("server error (%d): %s", resp.StatusCode, string(respBody))

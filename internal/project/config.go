@@ -1,6 +1,7 @@
 package project
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ProjectConfig represents the .polaris.yaml project configuration file
+// ProjectConfig represents the .relynce.yaml project configuration file
 type ProjectConfig struct {
 	Project    string             `yaml:"project"`
 	Components []ProjectComponent `yaml:"components"`
@@ -21,7 +22,7 @@ type ProjectComponent struct {
 	Path string `yaml:"path"`
 }
 
-// LoadProjectConfigFrom reads .polaris.yaml from the specified directory's git root.
+// LoadProjectConfigFrom reads .relynce.yaml from the specified directory's git root.
 // If targetDir is empty, uses the current working directory (existing behavior).
 func LoadProjectConfigFrom(targetDir string) *ProjectConfig {
 	var gitRoot string
@@ -47,9 +48,19 @@ func LoadProjectConfigFrom(targetDir string) *ProjectConfig {
 		gitRoot = strings.TrimSpace(string(out))
 	}
 
-	data, err := os.ReadFile(filepath.Join(gitRoot, ".polaris.yaml"))
+	relyncePath := filepath.Join(gitRoot, ".relynce.yaml")
+	polarisPath := filepath.Join(gitRoot, ".polaris.yaml")
+	data, err := os.ReadFile(relyncePath)
 	if err != nil {
-		return nil
+		// Fallback: try .polaris.yaml and auto-rename
+		data, err = os.ReadFile(polarisPath)
+		if err != nil {
+			return nil
+		}
+		// Auto-rename .polaris.yaml → .relynce.yaml
+		if renameErr := os.Rename(polarisPath, relyncePath); renameErr == nil {
+			fmt.Fprintf(os.Stderr, "Renamed .polaris.yaml → .relynce.yaml\n")
+		}
 	}
 
 	var cfg ProjectConfig
@@ -59,18 +70,18 @@ func LoadProjectConfigFrom(targetDir string) *ProjectConfig {
 	return &cfg
 }
 
-// LoadProjectConfig reads .polaris.yaml from the current directory's git root.
+// LoadProjectConfig reads .relynce.yaml from the current directory's git root.
 func LoadProjectConfig() *ProjectConfig {
 	return LoadProjectConfigFrom("")
 }
 
-// WriteProjectConfig writes a ProjectConfig to disk as .polaris.yaml
+// WriteProjectConfig writes a ProjectConfig to disk as .relynce.yaml
 func WriteProjectConfig(path string, cfg *ProjectConfig) error {
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return err
 	}
 
-	header := "# Polaris project configuration\n# Used by detect-risks and reliability-review skills for consistent service naming\n"
+	header := "# Relynce project configuration\n# Used by detect-risks and reliability-review skills for consistent service naming\n"
 	return os.WriteFile(path, []byte(header+string(data)), 0644)
 }

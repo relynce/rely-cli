@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relynce/polaris-cli/internal/api"
-	"github.com/relynce/polaris-cli/internal/config"
-	"github.com/relynce/polaris-cli/internal/project"
+	"github.com/relynce/rely-cli/internal/api"
+	"github.com/relynce/rely-cli/internal/config"
+	"github.com/relynce/rely-cli/internal/project"
 )
 
 // ScanRequest represents the payload sent to the scan endpoint
@@ -131,8 +131,8 @@ func CmdScan(args []string, version string) {
 	}
 
 	if service == "" {
-		fmt.Fprintln(os.Stderr, "Error: --service is required (or use --target with a project that has .polaris.yaml)")
-		fmt.Fprintln(os.Stderr, "Usage: polaris scan --service <name> [--stdin|--file <path>] [--target <path>] [--dry-run]")
+		fmt.Fprintln(os.Stderr, "Error: --service is required (or use --target with a project that has .relynce.yaml)")
+		fmt.Fprintln(os.Stderr, "Usage: rely scan --service <name> [--stdin|--file <path>] [--target <path>] [--dry-run]")
 		os.Exit(1)
 	}
 
@@ -171,7 +171,7 @@ func CmdScan(args []string, version string) {
 	if scanReq.ScanType == "" {
 		scanReq.ScanType = "full"
 	}
-	scanReq.Metadata.ScannerID = "polaris-cli-" + version
+	scanReq.Metadata.ScannerID = "rely-cli-" + version
 
 	if projectCfg := project.LoadProjectConfigFrom(targetDir); projectCfg != nil && len(projectCfg.Components) > 0 {
 		project.MapFindingsToComponents(scanReq.Findings, projectCfg)
@@ -250,7 +250,7 @@ func submitScan(cfg *config.Config, scanReq *ScanRequest) (*ScanResponse, error)
 	defer resp.Body.Close()
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return nil, fmt.Errorf("authentication failed - run 'polaris login' to reconfigure")
+		return nil, fmt.Errorf("authentication failed - run 'rely login' to reconfigure")
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("server error (%d): %s", resp.StatusCode, string(respBody))

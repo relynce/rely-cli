@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// CleanupOldClaudeInstallations removes old Polaris installations from Claude Code directories
+// CleanupOldClaudeInstallations removes old Relynce installations from Claude Code directories
 func CleanupOldClaudeInstallations() error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -19,7 +19,7 @@ func CleanupOldClaudeInstallations() error {
 	// Remove old commands from ~/.claude/commands/polaris/
 	oldCommandsDir := filepath.Join(home, ".claude", "commands", "polaris")
 	if _, err := os.Stat(oldCommandsDir); err == nil {
-		fmt.Printf("Removing old Polaris commands from %s...\n", oldCommandsDir)
+		fmt.Printf("Removing old Relynce commands from %s...\n", oldCommandsDir)
 		if err := os.RemoveAll(oldCommandsDir); err != nil {
 			return fmt.Errorf("remove old commands: %w", err)
 		}
@@ -36,9 +36,9 @@ func InstallClaudePlugin(version string, tarballData []byte) error {
 		return fmt.Errorf("get home directory: %w", err)
 	}
 
-	// Create local marketplace structure at ~/.polaris/marketplace
-	marketplaceDir := filepath.Join(home, ".polaris", "marketplace")
-	pluginDir := filepath.Join(marketplaceDir, "plugins", "polaris")
+	// Create local marketplace structure at ~/.relynce/marketplace
+	marketplaceDir := filepath.Join(home, ".relynce", "marketplace")
+	pluginDir := filepath.Join(marketplaceDir, "plugins", "relynce")
 
 	// Clean up existing installation
 	if err := os.RemoveAll(marketplaceDir); err != nil && !os.IsNotExist(err) {
@@ -59,24 +59,24 @@ func InstallClaudePlugin(version string, tarballData []byte) error {
 	// Create marketplace.json
 	marketplaceJSON := fmt.Sprintf(`{
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "polaris-local",
-  "description": "Polaris plugin for reliability risk analysis",
+  "name": "relynce-local",
+  "description": "Relynce plugin for reliability risk analysis",
   "owner": {
     "name": "Relynce",
     "email": "team@relynce.ai"
   },
   "plugins": [
     {
-      "name": "polaris",
+      "name": "relynce",
       "version": "%s",
       "description": "Reliability risk analysis and incident prevention for engineering teams",
       "author": {
         "name": "Relynce",
         "email": "team@relynce.ai"
       },
-      "source": "./plugins/polaris",
+      "source": "./plugins/relynce",
       "category": "development",
-      "homepage": "https://docs.relynce.ai/polaris"
+      "homepage": "https://docs.relynce.ai"
     }
   ]
 }`, version)
@@ -94,8 +94,8 @@ func InstallClaudePlugin(version string, tarballData []byte) error {
 	fmt.Println("✓ Created local marketplace")
 
 	// Remove old marketplace if it exists
-	fmt.Println("Removing old Polaris marketplace (if exists)...")
-	cmd := exec.Command("claude", "plugin", "marketplace", "remove", "polaris-local")
+	fmt.Println("Removing old Relynce marketplace (if exists)...")
+	cmd := exec.Command("claude", "plugin", "marketplace", "remove", "relynce-local")
 	cmd.Run() // Ignore error - marketplace might not exist
 
 	// Add marketplace using claude CLI
@@ -109,7 +109,7 @@ func InstallClaudePlugin(version string, tarballData []byte) error {
 
 	// Install plugin using claude CLI
 	fmt.Println("Installing plugin...")
-	cmd = exec.Command("claude", "plugin", "install", "polaris@polaris-local")
+	cmd = exec.Command("claude", "plugin", "install", "relynce@relynce-local")
 	output, err = cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("install plugin: %w\nOutput: %s", err, string(output))
@@ -121,8 +121,8 @@ func InstallClaudePlugin(version string, tarballData []byte) error {
 		fmt.Fprintf(os.Stderr, "Warning: could not save plugin metadata: %v\n", err)
 	}
 
-	fmt.Printf("\n✅ Polaris plugin successfully installed!\n")
-	fmt.Printf("Commands are now available: /polaris:detect-risks, /polaris:analyze-risks, etc.\n")
+	fmt.Printf("\n✅ Relynce plugin successfully installed!\n")
+	fmt.Printf("Commands are now available: /rely:detect-risks, /rely:analyze-risks, etc.\n")
 	fmt.Printf("\nRestart Claude Code to ensure all commands are loaded.\n")
 
 	return nil
@@ -178,7 +178,7 @@ func RegisterWithClaudeCode(version, installPath string) error {
 	}
 
 	// Use key format: plugin@source
-	key := "polaris@polaris-api"
+	key := "rely@relynce-api"
 	reg.Plugins[key] = []pluginEntry{entry}
 
 	// Save registry
@@ -294,7 +294,7 @@ func UnregisterFromClaudeCode() error {
 		return nil
 	}
 
-	key := "polaris@polaris-api"
+	key := "rely@relynce-api"
 	delete(reg.Plugins, key)
 
 	data, err := json.MarshalIndent(reg, "", "  ")

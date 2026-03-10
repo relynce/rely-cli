@@ -1,4 +1,4 @@
-/polaris
+/rely
 *.exe
 .env
-.polaris/
+.relynce/

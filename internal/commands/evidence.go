@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/relynce/polaris-cli/internal/api"
-	"github.com/relynce/polaris-cli/internal/display"
+	"github.com/relynce/rely-cli/internal/api"
+	"github.com/relynce/rely-cli/internal/display"
 )
 
 type EvidenceItem struct {
@@ -52,7 +52,7 @@ func CmdEvidence(args []string) {
 }
 
 func printEvidenceUsage() {
-	fmt.Println("Usage: polaris evidence <subcommand> [options]")
+	fmt.Println("Usage: rely evidence <subcommand> [options]")
 	fmt.Println()
 	fmt.Println("Subcommands:")
 	fmt.Println("  submit    Submit evidence for a control")
@@ -74,7 +74,7 @@ func printEvidenceUsage() {
 	fmt.Println("  --limit=<n>        Max records (default: 20)")
 	fmt.Println()
 	fmt.Println("Verify usage:")
-	fmt.Println("  polaris evidence verify <evidence-id>")
+	fmt.Println("  rely evidence verify <evidence-id>")
 }
 
 func cmdEvidenceSubmit(args []string) {
@@ -116,7 +116,7 @@ func cmdEvidenceSubmit(args []string) {
 
 	if strings.HasPrefix(controlCode, "R-") && !strings.HasPrefix(controlCode, "RC-") {
 		fmt.Fprintf(os.Stderr, "Note: \"%s\" is a risk code, not a control code (RC-XXX).\n", controlCode)
-		fmt.Fprintf(os.Stderr, "Evidence is submitted per control. Use \"polaris risk show %s\" to find mapped controls.\n", controlCode)
+		fmt.Fprintf(os.Stderr, "Evidence is submitted per control. Use \"rely risk show %s\" to find mapped controls.\n", controlCode)
 		os.Exit(1)
 	}
 
@@ -257,7 +257,7 @@ func cmdEvidenceList(args []string) {
 func cmdEvidenceVerify(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "Error: evidence ID required")
-		fmt.Fprintln(os.Stderr, "Usage: polaris evidence verify <evidence-id>")
+		fmt.Fprintln(os.Stderr, "Usage: rely evidence verify <evidence-id>")
 		os.Exit(1)
 	}
 
