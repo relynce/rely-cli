@@ -18,10 +18,16 @@ import (
 
 // ScanRequest represents the payload sent to the scan endpoint
 type ScanRequest struct {
-	Service  string        `json:"service"`
-	ScanType string        `json:"scan_type"`
-	Findings []interface{} `json:"findings"`
-	Metadata ScanMetadata  `json:"metadata,omitempty"`
+	Service      string        `json:"service"`
+	ScanType     string        `json:"scan_type"`
+	Findings     []interface{} `json:"findings"`
+	Metadata     ScanMetadata  `json:"metadata,omitempty"`
+
+	// Service catalog data (optional, populated by detect-risks scans)
+	Stack        *ScanStackInfo   `json:"stack,omitempty"`
+	Components   []ScanComponent  `json:"components,omitempty"`
+	Dependencies []ScanDependency `json:"dependencies,omitempty"`
+	CatalogMeta  *ScanCatalogMeta `json:"catalog_meta,omitempty"`
 }
 
 // ScanMetadata contains metadata about the scan
@@ -29,6 +35,42 @@ type ScanMetadata struct {
 	GitCommit string `json:"git_commit,omitempty"`
 	GitBranch string `json:"git_branch,omitempty"`
 	ScannerID string `json:"scanner_id,omitempty"`
+}
+
+// ScanStackInfo holds detected technology stack information.
+type ScanStackInfo struct {
+	Languages      []string `json:"languages,omitempty"`
+	Frameworks     []string `json:"frameworks,omitempty"`
+	Databases      []string `json:"databases,omitempty"`
+	Infrastructure []string `json:"infrastructure,omitempty"`
+	CloudProvider  string   `json:"cloud_provider,omitempty"`
+}
+
+// ScanComponent represents a service component from .relynce.yaml or auto-detection.
+type ScanComponent struct {
+	Name         string   `json:"name"`
+	Path         string   `json:"path,omitempty"`
+	Type         string   `json:"type,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	Technologies []string `json:"technologies,omitempty"`
+}
+
+// ScanDependency represents an auto-detected dependency.
+type ScanDependency struct {
+	Target      string `json:"target"`
+	Type        string `json:"type,omitempty"`
+	Criticality string `json:"criticality,omitempty"`
+	Description string `json:"description,omitempty"`
+	Source      string `json:"source,omitempty"`
+}
+
+// ScanCatalogMeta holds optional manual overrides from .relynce.yaml.
+type ScanCatalogMeta struct {
+	DisplayName string `json:"display_name,omitempty"`
+	Description string `json:"description,omitempty"`
+	Tier        string `json:"tier,omitempty"`
+	TeamName    string `json:"team_name,omitempty"`
+	TeamContact string `json:"team_contact,omitempty"`
 }
 
 // ScanResponse represents the response from the scan endpoint
