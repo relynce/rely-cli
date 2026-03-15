@@ -170,6 +170,8 @@ func CmdRisk(args []string) {
 		CmdRiskAcknowledge(args[1:])
 	case "accept":
 		CmdRiskAccept(args[1:])
+	case "ready":
+		CmdRiskReady(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown risk command: %s\n", args[0])
 		printRiskUsage()
@@ -182,6 +184,7 @@ func printRiskUsage() {
 
 Commands:
   list                    List all risks in the register
+  ready                   Top unresolved risks ranked by score (highest value first)
   show <risk-code>        Show detailed information about a specific risk
   context <risk-code>     Show full context (controls, knowledge, service history)
   stale                   List risks marked as stale
@@ -194,12 +197,15 @@ Options:
   --org-id <id>          Override organization ID
   --format <json|table>  Output format (default: table)
   --status <status>      Filter by status (for list command)
-  --category <category>  Filter by category (for list command)
-  --service <name>       Filter by linked service (for list command)
+  --category <category>  Filter by category (for list/ready commands)
+  --service <name>       Filter by linked service (for list/ready commands)
+  --limit <n>            Number of results (for ready command, default: 10)
 
 Examples:
   rely risk list
   rely risk list --status detected --service polaris
+  rely risk ready
+  rely risk ready --limit 20 --category change_management
   rely risk show R-001
   rely risk context R-001
   rely risk resolve R-001`)
@@ -283,6 +289,145 @@ func CmdRiskList(args []string) {
 		fmt.Printf("%-10s %-12s %-8d %-20s %-50s\n",
 			r.RiskCode, statusStr, r.Score, r.Category, title)
 	}
+}
+
+// CmdRiskReady shows the top unresolved risks ranked by score (highest value first).
+// "Ready" means the risk has an open status (detected, acknowledged, or mitigating)
+// and is sorted by score descending so the highest-impact items surface first.
+func CmdRiskReady(args []string) {
+	cfg := api.LoadAndResolveConfig()
+
+	var categoryFilter, serviceFilter, format string
+	limit := 10
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--category":
+			if i+1 < len(args) {
+				categoryFilter = args[i+1]
+				i++
+			}
+		case "--service":
+			if i+1 < len(args) {
+				serviceFilter = args[i+1]
+				i++
+			}
+		case "--limit":
+			if i+1 < len(args) {
+				if n := parseInt(args[i+1]); n > 0 {
+					limit = n
+				}
+				i++
+			}
+		case "--format":
+			if i+1 < len(args) {
+				format = args[i+1]
+				i++
+			}
+		}
+	}
+
+	// Fetch risks sorted by score descending
+	endpoint := cfg.APIURL + "/api/v1/risks"
+	queryParams := []string{"limit=1000", "sort_by=score", "sort_order=desc"}
+	if categoryFilter != "" {
+		queryParams = append(queryParams, fmt.Sprintf("category=%s", categoryFilter))
+	}
+	if serviceFilter != "" {
+		queryParams = append(queryParams, fmt.Sprintf("service=%s", serviceFilter))
+	}
+	endpoint += "?" + strings.Join(queryParams, "&")
+
+	body, err := api.MakeAPIRequest(cfg, "GET", endpoint, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error fetching risks: %v\n", err)
+		os.Exit(1)
+	}
+
+	var resp ListRisksResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing response: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Filter to open statuses only (detected, acknowledged, mitigating)
+	var ready []Risk
+	for _, r := range resp.Risks {
+		switch r.Status {
+		case "detected", "acknowledged", "mitigating":
+			ready = append(ready, r)
+		}
+	}
+
+	if format == "json" {
+		out := ready
+		if len(out) > limit {
+			out = out[:limit]
+		}
+		jsonBytes, _ := json.MarshalIndent(out, "", "  ")
+		fmt.Println(string(jsonBytes))
+		return
+	}
+
+	if len(ready) == 0 {
+		fmt.Println("No unresolved risks ready for remediation.")
+		return
+	}
+
+	showing := len(ready)
+	if showing > limit {
+		showing = limit
+	}
+
+	fmt.Printf("Ready Risks: showing top %d of %d unresolved\n\n", showing, len(ready))
+	fmt.Printf("%-6s %-10s %-5s %-14s %-18s %s\n",
+		"#", "CODE", "SCORE", "PRIORITY", "CATEGORY", "TITLE")
+	fmt.Println(strings.Repeat("-", 100))
+
+	for i, r := range ready {
+		if i >= limit {
+			break
+		}
+		priority := classifyPriority(r.Score)
+		title := r.Title
+		if len(title) > 42 {
+			title = title[:42] + "..."
+		}
+		cat := display.FormatCategory(r.Category)
+		if len(cat) > 18 {
+			cat = cat[:18]
+		}
+		fmt.Printf("%-6d %-10s %-5d %-14s %-18s %s\n",
+			i+1, r.RiskCode, r.Score, priority, cat, title)
+	}
+
+	if len(ready) > limit {
+		fmt.Printf("\n  ... %d more unresolved risks (use --limit to see more)\n", len(ready)-limit)
+	}
+}
+
+func classifyPriority(score int) string {
+	switch {
+	case score >= 80:
+		return "CRITICAL"
+	case score >= 60:
+		return "HIGH"
+	case score >= 40:
+		return "MEDIUM"
+	default:
+		return "LOW"
+	}
+}
+
+func parseInt(s string) int {
+	n := 0
+	for _, c := range s {
+		if c >= '0' && c <= '9' {
+			n = n*10 + int(c-'0')
+		} else {
+			return 0
+		}
+	}
+	return n
 }
 
 // CmdRiskShow shows detailed information about a specific risk
