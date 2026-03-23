@@ -25,7 +25,6 @@ type Risk struct {
 	StaleSince   string   `json:"stale_since,omitempty"`
 	LastSeenAt   string   `json:"last_seen_at,omitempty"`
 	ResolvedAt   string   `json:"resolved_at,omitempty"`
-	ClosedAt     string   `json:"closed_at,omitempty"`
 }
 
 // RiskDetail represents detailed risk information
@@ -162,12 +161,8 @@ func CmdRisk(args []string) {
 		CmdRiskContext(args[1:])
 	case "stale":
 		CmdRiskStale(args[1:])
-	case "close":
-		CmdRiskClose(args[1:])
 	case "resolve":
 		CmdRiskResolve(args[1:])
-	case "acknowledge":
-		CmdRiskAcknowledge(args[1:])
 	case "accept":
 		CmdRiskAccept(args[1:])
 	case "ready":
@@ -188,9 +183,7 @@ Commands:
   show <risk-code>        Show detailed information about a specific risk
   context <risk-code>     Show full context (controls, knowledge, service history)
   stale                   List risks marked as stale
-  close <risk-code>       Close a risk (no longer applicable)
   resolve <risk-code>     Mark a risk as resolved
-  acknowledge <risk-code> Acknowledge a risk (tracking for future action)
   accept <risk-code>      Accept a risk (intentional decision to retain)
 
 Options:
@@ -292,7 +285,7 @@ func CmdRiskList(args []string) {
 }
 
 // CmdRiskReady shows the top unresolved risks ranked by score (highest value first).
-// "Ready" means the risk has an open status (detected, acknowledged, or mitigating)
+// "Ready" means the risk has status "detected" (the only open status)
 // and is sorted by score descending so the highest-impact items surface first.
 func CmdRiskReady(args []string) {
 	cfg := api.LoadAndResolveConfig()
@@ -349,11 +342,10 @@ func CmdRiskReady(args []string) {
 		os.Exit(1)
 	}
 
-	// Filter to open statuses only (detected, acknowledged, mitigating)
+	// Filter to open statuses only (detected)
 	var ready []Risk
 	for _, r := range resp.Risks {
-		switch r.Status {
-		case "detected", "acknowledged", "mitigating":
+		if r.Status == "detected" {
 			ready = append(ready, r)
 		}
 	}
@@ -478,9 +470,6 @@ func CmdRiskShow(args []string) {
 	}
 	if risk.ResolvedAt != "" {
 		fmt.Printf("Resolved At: %s\n", risk.ResolvedAt)
-	}
-	if risk.ClosedAt != "" {
-		fmt.Printf("Closed At: %s\n", risk.ClosedAt)
 	}
 
 	if risk.Narrative != "" {
@@ -741,32 +730,6 @@ func CmdRiskStale(args []string) {
 	}
 }
 
-// CmdRiskClose closes a risk (no longer applicable)
-func CmdRiskClose(args []string) {
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: rely risk close <risk-code>")
-		os.Exit(1)
-	}
-
-	cfg := api.LoadAndResolveConfig()
-
-	riskCode := args[0]
-	riskID, err := FindRiskIDByCode(cfg, riskCode)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding risk: %v\n", err)
-		os.Exit(1)
-	}
-
-	endpoint := cfg.APIURL + "/api/v1/risks/" + riskID + "/close"
-	_, err = api.MakeAPIRequest(cfg, "POST", endpoint, nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error closing risk: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Risk %s closed successfully.\n", riskCode)
-}
-
 // CmdRiskResolve marks a risk as resolved
 func CmdRiskResolve(args []string) {
 	if len(args) == 0 {
@@ -800,33 +763,6 @@ func CmdRiskResolve(args []string) {
 	}
 
 	fmt.Printf("Risk %s resolved successfully.\n", riskCode)
-}
-
-// CmdRiskAcknowledge acknowledges a risk (tracking for future action)
-func CmdRiskAcknowledge(args []string) {
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: rely risk acknowledge <risk-code>")
-		os.Exit(1)
-	}
-
-	cfg := api.LoadAndResolveConfig()
-
-	riskCode := args[0]
-	riskID, err := FindRiskIDByCode(cfg, riskCode)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding risk: %v\n", err)
-		os.Exit(1)
-	}
-
-	endpoint := cfg.APIURL + "/api/v1/risks/" + riskID + "/status"
-	statusBody, _ := json.Marshal(map[string]string{"status": "acknowledged"})
-	_, err = api.MakeAPIRequest(cfg, "PATCH", endpoint, statusBody)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error acknowledging risk: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Risk %s acknowledged successfully.\n", riskCode)
 }
 
 // CmdRiskAccept accepts a risk (intentional decision to retain)

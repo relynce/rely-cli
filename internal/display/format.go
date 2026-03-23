@@ -7,16 +7,10 @@ func FormatStatus(status string) string {
 	switch status {
 	case "detected":
 		return "[DETECTED]"
-	case "acknowledged":
-		return "[ACKNOWLEDGED]"
 	case "accepted":
 		return "[ACCEPTED]"
-	case "mitigating":
-		return "[MITIGATING]"
 	case "resolved":
 		return "[RESOLVED]"
-	case "closed":
-		return "[CLOSED]"
 	case "archived":
 		return "[ARCHIVED]"
 	default:
