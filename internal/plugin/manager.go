@@ -95,7 +95,9 @@ func ExtractTarball(tarballData []byte, targetDir string) error {
 				outFile.Close()
 				return fmt.Errorf("write file %s: %w", targetPath, err)
 			}
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				return fmt.Errorf("close file %s: %w", targetPath, err)
+			}
 			fileCount++
 		}
 	}
