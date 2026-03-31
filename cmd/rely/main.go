@@ -63,6 +63,7 @@ func migrateConfigDir() {
 	if err != nil {
 		return
 	}
+	migrated := 0
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue // skip subdirectories for now
@@ -71,9 +72,14 @@ func migrateConfigDir() {
 		if err != nil {
 			continue
 		}
-		os.WriteFile(filepath.Join(newDir, entry.Name()), data, 0600)
+		if err := os.WriteFile(filepath.Join(newDir, entry.Name()), data, 0600); err != nil {
+			continue
+		}
+		migrated++
 	}
-	fmt.Fprintf(os.Stderr, "Migrated configuration from ~/.polaris/ to ~/.relynce/\n")
+	if migrated > 0 {
+		fmt.Fprintf(os.Stderr, "Migrated configuration from ~/.polaris/ to ~/.relynce/\n")
+	}
 }
 
 func main() {
