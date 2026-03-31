@@ -245,9 +245,17 @@ func cmdEvidenceList(args []string) {
 		statusBadge := display.FormatEvidenceStatus(e.Status)
 		commitInfo := ""
 		if e.GitHash != nil && *e.GitHash != "" {
-			commitInfo = " @ " + (*e.GitHash)[:8]
+			hash := *e.GitHash
+			if len(hash) > 8 {
+				hash = hash[:8]
+			}
+			commitInfo = " @ " + hash
 		}
-		fmt.Printf("  %s %s [%s] %s%s\n", e.ID[:8]+"...", statusBadge, e.Type, e.Name, commitInfo)
+		idStr := e.ID
+		if len(idStr) > 8 {
+			idStr = idStr[:8] + "..."
+		}
+		fmt.Printf("  %s %s [%s] %s%s\n", idStr, statusBadge, e.Type, e.Name, commitInfo)
 		if e.URLOrIdentifier != "" {
 			fmt.Printf("    URL: %s\n", e.URLOrIdentifier)
 		}
