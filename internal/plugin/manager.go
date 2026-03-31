@@ -70,6 +70,12 @@ func ExtractTarball(tarballData []byte, targetDir string) error {
 
 		targetPath := filepath.Join(targetDir, header.Name)
 
+		// Prevent path traversal: ensure extracted path stays within targetDir
+		cleanTarget := filepath.Clean(targetPath)
+		if !strings.HasPrefix(cleanTarget, filepath.Clean(targetDir)+string(os.PathSeparator)) && cleanTarget != filepath.Clean(targetDir) {
+			return fmt.Errorf("invalid file path in tarball (path traversal): %s", header.Name)
+		}
+
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(targetPath, 0755); err != nil {
