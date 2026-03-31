@@ -142,6 +142,50 @@ type KnowledgeTraversalResponse struct {
 	Total   int                        `json:"total"`
 }
 
+// ForesightImpactNode represents a single entity in an impact path.
+type ForesightImpactNode struct {
+	EntityType   string  `json:"entity_type"`
+	EntityID     string  `json:"entity_id"`
+	Label        string  `json:"label"`
+	RelationType string  `json:"relation_type"`
+	DelaySeconds *int    `json:"delay_seconds,omitempty"`
+	Strength     float64 `json:"strength"`
+	Depth        int     `json:"depth"`
+}
+
+// ForesightMitigation represents a control or procedure that mitigates a node.
+type ForesightMitigation struct {
+	ControlCode    string  `json:"control_code,omitempty"`
+	ControlName    string  `json:"control_name,omitempty"`
+	ProcedureID    string  `json:"procedure_id,omitempty"`
+	ProcedureTitle string  `json:"procedure_title,omitempty"`
+	EntityType     string  `json:"entity_type"`
+	EntityID       string  `json:"entity_id"`
+	EntityLabel    string  `json:"entity_label"`
+	EdgeStrength   float64 `json:"edge_strength"`
+	ForNodeID      string  `json:"for_node_id"`
+}
+
+// ForesightImpactPath represents a single causal chain from the starting entity.
+type ForesightImpactPath struct {
+	Chain         []ForesightImpactNode  `json:"chain"`
+	TotalStrength float64                `json:"total_strength"`
+	Mitigations   []ForesightMitigation  `json:"mitigations,omitempty"`
+}
+
+// ForesightMetadata contains performance and diagnostic information.
+type ForesightMetadata struct {
+	TraversalDepth int     `json:"traversal_depth"`
+	EdgesExamined  int     `json:"edges_examined"`
+	QueryTimeMs    float64 `json:"query_time_ms"`
+}
+
+// ForesightResponse contains the impact paths and metadata from a foresight query.
+type ForesightResponse struct {
+	ImpactPaths []ForesightImpactPath `json:"impact_paths"`
+	Metadata    ForesightMetadata     `json:"metadata"`
+}
+
 // KnowledgeGraphSearchResult extends search results with graph metadata
 type KnowledgeGraphSearchResult struct {
 	Type            string  `json:"type"`
@@ -185,6 +229,8 @@ func CmdKnowledge(args []string) {
 		cmdKnowledgeGraph(args[1:])
 	case "graph-search":
 		cmdKnowledgeGraphSearch(args[1:])
+	case "foresight":
+		cmdKnowledgeForesight(args[1:])
 	case "enrich":
 		cmdKnowledgeEnrich(args[1:])
 	case "health":
@@ -213,6 +259,7 @@ Subcommands:
   patterns            List or search failure patterns
   relationships       List relationships for a knowledge entity
   graph               Traverse the knowledge graph from an entity
+  foresight           Explore causal impact chains with mitigations
   health              Show knowledge base health statistics
 
 Enrich Options:
@@ -254,6 +301,10 @@ Relationships Options:
 Graph Options:
   rely knowledge graph <entity_type> <entity_id> [--depth=N] [--min-strength=0.3] [--type=causes,mitigates]
 
+Foresight Options:
+  rely knowledge foresight --entity-type=<type> --entity-id=<id> [--depth=N] [--min-strength=0.3]
+                           [--include-mitigations] [--relation-types=causes,depends_on] [--format=table|json]
+
 Examples:
   rely knowledge enrich --vertical=fault-tolerance
   rely knowledge enrich --control=RC-018 --query="timeout failure"
@@ -264,6 +315,8 @@ Examples:
   rely knowledge patterns --type=failure_mode --min-occurrences=3
   rely knowledge relationships fact fact_abc12
   rely knowledge graph fact fact_abc12 --depth=2 --type=causes,mitigates
+  rely knowledge foresight --entity-type=service --entity-id=checkout-api --include-mitigations
+  rely knowledge foresight --entity-type=pattern --entity-id=pattern_abc12 --depth=5 --format=json
   rely knowledge health`)
 }
 
@@ -715,6 +768,129 @@ func cmdKnowledgeGraph(args []string) {
 			fmt.Printf("  %s         ID: %s\n", indent, n.EntityID)
 		}
 	}
+}
+
+// cmdKnowledgeForesight explores causal impact chains with mitigations
+func cmdKnowledgeForesight(args []string) {
+	var entityType, entityID, format string
+	var relationTypes string
+	depth := 3
+	minStrength := 0.3
+	includeMitigations := false
+
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--entity-type=") {
+			entityType = strings.TrimPrefix(arg, "--entity-type=")
+		} else if strings.HasPrefix(arg, "--entity-id=") {
+			entityID = strings.TrimPrefix(arg, "--entity-id=")
+		} else if strings.HasPrefix(arg, "--depth=") {
+			fmt.Sscanf(strings.TrimPrefix(arg, "--depth="), "%d", &depth)
+		} else if strings.HasPrefix(arg, "--min-strength=") {
+			fmt.Sscanf(strings.TrimPrefix(arg, "--min-strength="), "%f", &minStrength)
+		} else if strings.HasPrefix(arg, "--include-mitigations") {
+			includeMitigations = true
+		} else if strings.HasPrefix(arg, "--relation-types=") {
+			relationTypes = strings.TrimPrefix(arg, "--relation-types=")
+		} else if strings.HasPrefix(arg, "--format=") {
+			format = strings.TrimPrefix(arg, "--format=")
+		}
+	}
+
+	if entityType == "" || entityID == "" {
+		fmt.Fprintln(os.Stderr, "Error: --entity-type and --entity-id are required")
+		fmt.Fprintln(os.Stderr, "Usage: rely knowledge foresight --entity-type=<type> --entity-id=<id> [options]")
+		fmt.Fprintln(os.Stderr, "Entity types: service, fact, procedure, pattern, technology, control, incident, risk")
+		os.Exit(1)
+	}
+
+	cfg := api.LoadAndResolveConfig()
+
+	body := map[string]interface{}{
+		"entity_type":          entityType,
+		"entity_id":            entityID,
+		"depth":                depth,
+		"min_strength":         minStrength,
+		"include_mitigations":  includeMitigations,
+	}
+	if relationTypes != "" {
+		body["relation_types"] = strings.Split(relationTypes, ",")
+	}
+	bodyBytes, _ := json.Marshal(body)
+
+	url := cfg.APIURL + "/api/knowledge/foresight"
+	resp, err := api.MakeAPIRequest(cfg, "POST", url, bodyBytes)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// JSON output mode
+	if format == "json" {
+		fmt.Println(string(resp))
+		return
+	}
+
+	var foresightResp ForesightResponse
+	if err := json.Unmarshal(resp, &foresightResp); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing response: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(foresightResp.ImpactPaths) == 0 {
+		fmt.Printf("No impact paths found from %s %s\n", entityType, entityID)
+		return
+	}
+
+	fmt.Printf("Foresight: %s %s (depth %d, %d edges examined, %.0fms)\n\n",
+		entityType, entityID,
+		foresightResp.Metadata.TraversalDepth,
+		foresightResp.Metadata.EdgesExamined,
+		foresightResp.Metadata.QueryTimeMs,
+	)
+
+	// Group paths by depth for table-like output
+	for i, path := range foresightResp.ImpactPaths {
+		for _, node := range path.Chain {
+			indent := strings.Repeat("  ", node.Depth)
+			delay := ""
+			if node.DelaySeconds != nil {
+				delay = " (" + formatForesightDelay(*node.DelaySeconds) + ")"
+			}
+			fmt.Printf("  %s-[%s]-> %s [%s] (strength: %.0f%%)%s\n",
+				indent, node.RelationType, node.Label, node.EntityType,
+				node.Strength*100, delay)
+		}
+
+		// Show mitigations for this path
+		if len(path.Mitigations) > 0 {
+			fmt.Printf("    Mitigations:\n")
+			for _, mit := range path.Mitigations {
+				label := mit.EntityLabel
+				if mit.ControlCode != "" {
+					label = mit.ControlCode + ": " + mit.ControlName
+				} else if mit.ProcedureTitle != "" {
+					label = mit.ProcedureTitle
+				}
+				fmt.Printf("      [%s] %s (strength: %.0f%%)\n",
+					mit.EntityType, label, mit.EdgeStrength*100)
+			}
+		}
+
+		if i < len(foresightResp.ImpactPaths)-1 {
+			fmt.Println()
+		}
+	}
+}
+
+// formatForesightDelay converts seconds to human-readable delay.
+func formatForesightDelay(seconds int) string {
+	if seconds < 60 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+	if seconds < 3600 {
+		return fmt.Sprintf("%dm", seconds/60)
+	}
+	return fmt.Sprintf("%dh", seconds/3600)
 }
 
 // cmdKnowledgeGraphSearch performs a graph-expanded semantic search
